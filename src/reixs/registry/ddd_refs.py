@@ -6,6 +6,7 @@ DDD_REF_PATTERN = re.compile(r"^re-ddd:[\w_]+@\d+\.\d+\.\d+$")
 
 KNOWN_DDD_REFS = {
     "re-ddd:lease_core_terms_ontario@0.1.0",
+    "re-ddd:lease_abstraction_commercial_na@1.0.0",
 }
 
 
