@@ -280,7 +280,7 @@ The Domain Context section declares the jurisdictional and domain framework for 
 | Jurisdiction | Yes | Free text (e.g., `Ontario, Canada`) | Pass 3 error if empty |
 | Currency | No | Currency code (e.g., `CAD`) | Pass 5 warning if jurisdiction contains "Ontario" and currency is not declared |
 | Area Unit | No | Unit string (e.g., `sq ft`) | No validation |
-| DDD Reference | No | `re-ddd:<name>@X.Y.Z` — must match `^re-ddd:[\w_]+@\d+\.\d+\.\d+$` | Pass 3 error if missing. Pass 3 error if present but invalid format. Pass 3 warning if valid format but not in known registry |
+| DDD Reference | Yes | `re-ddd:<name>@X.Y.Z` — must match `^re-ddd:[\w_]+@\d+\.\d+\.\d+$` | Pass 3 error if missing. Pass 3 error if present but invalid format. Pass 3 warning if valid format but not in known registry |
 | ADR References | No | Comma-separated list (e.g., `ADR-001, ADR-003`) — parsed into an array | Pass 5 error if tier is `complex` and ADR references are absent |
 
 **Known jurisdictions (v0.1.0):** `Ontario, Canada`, `Ontario`
