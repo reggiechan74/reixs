@@ -1,2 +1,0 @@
-[console_scripts]
-reixs = reixs.cli:cli
