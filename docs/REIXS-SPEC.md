@@ -194,3 +194,143 @@ and produce a normalized term sheet with field-level provenance.
 ```
 
 If a section contains both free text and other content (bullet lists, subsections), the text is stored under a `_text` key in the section dictionary.
+
+## 3. Section Reference
+
+This section documents every REIXS section in detail: accepted heading aliases, format expectations, field-level validation rules, and examples. Validation rules reference the pass that enforces them (Pass 1 = structural, Pass 3 = domain, Pass 5 = cross-field).
+
+### 3.1 Meta
+
+**Canonical name:** `meta`
+**Heading aliases:** `Meta`
+
+The Meta section declares spec-level metadata as a bullet list of `Key: Value` pairs. All six fields are required.
+
+#### Fields
+
+| Field | Required | Format | Validation |
+|---|---|---|---|
+| Spec ID | Yes | Non-empty string. Convention: `REIXS-TYPE-JURISDICTION-SEQ` (e.g., `REIXS-LA-ON-001`) | Pass 1 error if empty |
+| Version | Yes | Semantic version `X.Y.Z` — must match `^\d+\.\d+\.\d+$` | Pass 1 error if not valid semver |
+| Task Type | Yes | Non-empty string | Pass 1 error if empty. Pass 3 warning if not in known task type registry |
+| Tier | Yes | One of: `micro`, `standard`, `complex` | Defaults to `standard` if value is unrecognized (no error emitted) |
+| Author | Yes | Non-empty string | No validation beyond presence in the data model |
+| Date | Yes | ISO 8601 date `YYYY-MM-DD` | Coerced to `2000-01-01` if unparseable (no error emitted) |
+
+**Known task types (v0.1.0):** `Lease Abstraction`
+
+#### Example
+
+```markdown
+## Meta
+
+- Spec ID: REIXS-LA-ON-001
+- Version: 1.0.0
+- Task Type: Lease Abstraction
+- Tier: standard
+- Author: Reggie Chan
+- Date: 2026-03-01
+```
+
+#### Notes
+
+- The parser normalizes keys to `snake_case` before mapping to the data model. `Spec ID` becomes `spec_id`, `Task Type` becomes `task_type`, etc.
+- Tier matching is case-insensitive and whitespace-trimmed. `Standard`, `STANDARD`, and `standard` all resolve to the `standard` tier.
+- The task type registry is checked case-insensitively. `Lease Abstraction` and `lease abstraction` both match.
+
+### 3.2 Objective
+
+**Canonical name:** `objective`
+**Heading aliases:** `Objective`
+
+The Objective section is a free-text paragraph describing what this spec accomplishes. It must be non-empty.
+
+#### Fields
+
+This section has no key-value fields. The entire content is stored as a single string.
+
+| Constraint | Validation |
+|---|---|
+| Non-empty text | Pass 1 error if the section is empty |
+
+#### Example
+
+```markdown
+## Objective
+
+Extract structured lease terms from a commercial lease document (Ontario jurisdiction)
+and produce a normalized term sheet with field-level provenance.
+```
+
+#### Notes
+
+- If the section contains both paragraph text and other elements (bullet lists, code blocks), only the paragraph text is extracted. In practice, keep this section to one or two plain sentences.
+
+### 3.3 Domain Context
+
+**Canonical name:** `domain_context`
+**Heading aliases:** `Domain Context`, `Domain`
+
+The Domain Context section declares the jurisdictional and domain framework for the task. It uses `Key: Value` bullet syntax.
+
+#### Fields
+
+| Field | Required | Format | Validation |
+|---|---|---|---|
+| Jurisdiction | Yes | Free text (e.g., `Ontario, Canada`) | Pass 3 error if empty |
+| Currency | No | Currency code (e.g., `CAD`) | Pass 5 warning if jurisdiction contains "Ontario" and currency is not declared |
+| Area Unit | No | Unit string (e.g., `sq ft`) | No validation |
+| DDD Reference | No | `re-ddd:<name>@X.Y.Z` — must match `^re-ddd:[\w_]+@\d+\.\d+\.\d+$` | Pass 3 error if missing. Pass 3 error if present but invalid format. Pass 3 warning if valid format but not in known registry |
+| ADR References | No | Comma-separated list (e.g., `ADR-001, ADR-003`) — parsed into an array | Pass 5 error if tier is `complex` and ADR references are absent |
+
+**Known jurisdictions (v0.1.0):** `Ontario, Canada`, `Ontario`
+**Known DDD refs (v0.1.0):** `re-ddd:lease_core_terms_ontario@0.1.0`
+
+#### Example
+
+```markdown
+## Domain Context
+
+- Jurisdiction: Ontario, Canada
+- Currency: CAD
+- Area Unit: sq ft
+- DDD Reference: re-ddd:lease_core_terms_ontario@0.1.0
+- ADR References: ADR-001, ADR-003
+```
+
+#### Notes
+
+- The DDD Reference field follows a three-level validation cascade: (1) presence check, (2) format regex, (3) registry lookup. Each level is only reached if the previous level passes.
+- ADR References are split on commas and trimmed. The string `ADR-001, ADR-003` becomes the array `["ADR-001", "ADR-003"]`.
+- The Ontario currency warning is a cross-field check — it fires only when jurisdiction contains "Ontario" (case-insensitive) and no currency is declared. It is a warning, not an error.
+- Known jurisdictions include both `Ontario, Canada` and `Ontario` (matched case-insensitively). Unrecognized jurisdictions are accepted without warning — the registry is advisory, not restrictive.
+
+### 3.4 Inputs
+
+**Canonical name:** `inputs`
+**Heading aliases:** `Inputs`, `Input`
+
+The Inputs section lists what goes into the task as a bullet list of `Key: Value` pairs. The content is domain-specific and has no required fields.
+
+#### Fields
+
+No fields are required. Each bullet item is parsed as a key-value pair using the standard `Key: Value` pattern. Items that do not match are stored as plain list entries.
+
+| Constraint | Validation |
+|---|---|
+| (none) | No structural, domain, or cross-field validation |
+
+#### Example
+
+```markdown
+## Inputs
+
+- Source Document: PDF (scanned or native)
+- Document Type: Commercial lease agreement
+- Expected Page Count: 10-50
+```
+
+#### Notes
+
+- The parser produces a list of `{"key": ..., "value": ...}` objects. Bullet items without a colon separator are stored with the full text as the key and an empty string as the value.
+- This section is intentionally unconstrained. The spec author defines whatever inputs are relevant for the task. Downstream agents use the compiled input list to understand what they will receive at runtime.
