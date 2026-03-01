@@ -120,6 +120,148 @@ This section tells downstream agents what they'll receive at runtime. Be specifi
 
 Run `reixs validate my_spec.reixs.md` once more. You've now written 4 of 10 sections. The validator should report 6 missing sections remaining.
 
+## Step 5: Objective Function Design (OFD)
+
+This is the heart of the spec. The OFD tells the agent what to optimize for, what never to do, and how to handle ambiguity. The number of sub-sections depends on your tier: `micro` requires 5, `standard` requires all 10, and `complex` requires all 10 plus additional depth. Since we chose `micro` in Step 1, we only need the 5 mandatory sub-sections.
+
+Add this:
+
+```markdown
+## Objective Function Design (OFD)
+
+### Primary Objective
+Extract property valuation metrics with factual accuracy >= 95%.
+
+### Hard Constraints
+- NEVER fabricate a value not present in the appraisal report
+- NEVER alter assessed values — extract verbatim
+- ALL extracted values MUST include the source page number
+
+### AutoFail Conditions
+- Any fabricated valuation figure
+- Market value extracted without page reference
+
+### Optimization Priority Order
+1. Factual correctness
+2. Completeness of key metrics
+3. Source traceability
+
+### Uncertainty Policy
+When a metric requires interpretation (e.g., adjusted vs. unadjusted value),
+mark as INFERENCE with reasoning. Never present interpretations as facts.
+```
+
+Let's walk through each sub-section:
+
+- **Primary Objective** — A single sentence stating the top-level goal and a measurable threshold. The validator checks for words like "factual" or "accuracy" in this sub-section (it's a soft heuristic, not a hard regex, but including them avoids a warning). This is what the agent optimizes for above all else.
+
+- **Hard Constraints** — Absolute rules the agent must never violate. Think of these as the "guardrails." They should be machine-checkable where possible — "NEVER fabricate a value" is clear enough that a downstream evaluator can flag violations.
+
+- **AutoFail Conditions** — Specific scenarios that constitute immediate failure. The difference from Hard Constraints is granularity: constraints are general rules, AutoFail conditions are concrete test cases. If an evaluator detects any of these, the entire run is scored as a failure regardless of how well everything else went.
+
+- **Optimization Priority Order** — A ranked list that tells the agent what to prioritize when trade-offs are necessary. If the agent can extract all metrics with perfect accuracy but it takes longer, is that okay? This list says yes — factual correctness comes first, completeness second, speed isn't even in the list.
+
+- **Uncertainty Policy** — How the agent should handle ambiguous or missing data. This is where you prevent the "confidently wrong" failure mode. Our policy says: label it as INFERENCE, show your reasoning, and never present an interpretation as a fact.
+
+These 5 mandatory sub-sections define the agent's optimization landscape. If you were writing a `standard` or `complex` tier spec, you'd also need 5 additional sub-sections (Soft Preferences, Scope Boundaries, Interaction with Jurisdiction, Conflict Resolution, and Success Metrics). For `micro`, the 5 above are sufficient.
+
+Run `reixs validate my_spec.reixs.md`. The "missing required section: ofd" error should be gone. If you misspelled a sub-section heading, you'll see a warning about a missing mandatory OFD sub-section — the validator matches headings by normalized name, so `Primary Objective`, `primary_objective`, and `Primary objective` all resolve to the same thing.
+
+## Step 6: Constraints
+
+Add this:
+
+```markdown
+## Constraints
+
+- Processing time: < 60 seconds per document
+- Output format: JSON
+- Offline processing only — no external API calls
+```
+
+The Constraints section captures operational limits — things that don't affect what the agent does, but how it's allowed to do it. Processing time, output format, network access, memory limits, that kind of thing.
+
+Like the Inputs section, there are no required fields here. The content is entirely domain-specific. The validator only checks that the section exists and isn't empty. You could have one constraint or twenty — whatever is relevant for your task.
+
+The distinction between Constraints (here) and Hard Constraints (in the OFD) is important: OFD Hard Constraints are about correctness ("never fabricate data"), while this section is about operational boundaries ("must finish in 60 seconds"). One is about the quality of the output, the other is about the conditions of execution.
+
+Run the validator. One more section checked off.
+
+## Step 7: Output Contract
+
+Add this:
+
+```markdown
+## Output Contract
+
+Each extracted metric MUST include:
+- `value`: the extracted numeric or text value
+- `status`: FACT | INFERENCE | MISSING
+- `provenance`: { page } (required for FACT status)
+```
+
+The Output Contract defines the structure of what the agent produces. This is where you specify the shape of the output — what fields are present, what values they can take, and what invariants hold.
+
+Two things matter for validation:
+
+1. The section must not be empty.
+2. The validator checks for the presence of words like "provenance" or "status" as a heuristic signal that you've thought about traceability. This isn't a hard requirement — the validator won't reject a spec that omits these words — but it will emit a warning nudging you to consider them. Our Output Contract mentions both, so no warnings here.
+
+Notice how the Output Contract connects back to the OFD's Uncertainty Policy: we defined three status values (`FACT`, `INFERENCE`, `MISSING`) and the Uncertainty Policy explained when to use `INFERENCE`. This kind of cross-section coherence is what separates a good spec from a collection of disconnected sections.
+
+Run the validator again. You should be down to just 2 missing sections now.
+
+## Step 8: Evaluation / EDD
+
+Add this:
+
+```markdown
+## Evaluation / EDD
+
+- Minimum pass rate: 90%
+- Regression cases: basic_appraisal, missing_market_value
+```
+
+The Evaluation section (also called EDD, for Evaluation-Driven Design) defines how you'll know whether the agent is working correctly. At minimum, you need a pass rate threshold and some regression test cases.
+
+For `micro` tier, an EDD Suite ID is optional. If you were writing a `standard` or `complex` spec, you'd need to provide one — a reference to a formal test suite that evaluators can run. At `micro` tier, listing a few regression case names is sufficient. These names don't have to resolve to actual test files right now; they serve as documentation of what scenarios you intend to test.
+
+The `Minimum pass rate: 90%` line means that if you run the agent against a test suite, at least 90% of cases must pass for the spec to be considered "met." The regression cases tell future-you (or a teammate) which specific scenarios to include in that suite.
+
+Run the validator. One section to go.
+
+## Step 9: Validation Checklist
+
+Add this:
+
+```markdown
+## Validation Checklist
+
+- [ ] All key valuation fields addressed in output contract
+- [ ] Hard constraints are machine-checkable
+- [ ] Jurisdiction metadata (currency) declared
+```
+
+The Validation Checklist is a self-audit. Before you finalize a spec, you walk through this list and check each item. It's a forcing function to make sure you didn't miss something obvious.
+
+The validator checks that this section exists and isn't empty, but it doesn't inspect the content of individual checklist items. It will emit a warning if the section is empty (zero items), but won't tell you whether your checklist items are good or bad — that's your judgment call.
+
+Use the `- [ ]` Markdown checkbox syntax so the checklist is interactive if you view the spec in an editor that supports it (like GitHub or Obsidian). You can check items off as you verify them:
+
+```markdown
+- [x] All key valuation fields addressed in output contract
+- [x] Hard constraints are machine-checkable
+- [x] Jurisdiction metadata (currency) declared
+```
+
+Run the validator one final time:
+
+```bash
+reixs validate my_spec.reixs.md
+```
+
+If you've followed every step, you should see zero errors. You may still see warnings — about the unrecognized Task Type, the unrecognized DDD Reference, or similar advisory messages — but no errors. Warnings are informational; errors are blockers. A spec with zero errors and a few warnings is perfectly valid.
+
 ---
 
-**Next up:** The OFD section — the heart of the spec — followed by Constraints, Output Contract, Evaluation, Behavior Spec, and Validation Checklist. That's covered in the next part of this tutorial.
+**What we've built so far:** A 9-section spec covering Meta, Objective, Domain Context, Inputs, OFD, Constraints, Output Contract, Evaluation, and Validation Checklist. That's 9 of 10 mandatory sections. The remaining section — the Behavior Spec (SESF) — is where you define the agent's step-by-step behavior, and it gets its own dedicated chapter next.
