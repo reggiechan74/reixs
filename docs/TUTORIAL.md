@@ -265,3 +265,167 @@ If you've followed every step, you should see zero errors. You may still see war
 ---
 
 **What we've built so far:** A 9-section spec covering Meta, Objective, Domain Context, Inputs, OFD, Constraints, Output Contract, Evaluation, and Validation Checklist. That's 9 of 10 mandatory sections. The remaining section — the Behavior Spec (SESF) — is where you define the agent's step-by-step behavior, and it gets its own dedicated chapter next.
+
+## Step 10: Behavior Spec (SESF)
+
+This is the trickiest part of a REIXS spec — and the most powerful. The Behavior Spec uses SESF (Structured English Specification Format) to define extraction rules, error handling, and worked examples in a way that's readable by humans and parseable by machines.
+
+The SESF block lives inside a fenced code block with the `sesf` language tag. Add this to your spec:
+
+````markdown
+## Behavior Spec (SESF)
+
+```sesf
+Property Valuation Extraction Rules
+
+Meta: Version 0.1.0 | Date: 2026-03-01 | Domain: Property Valuation | Status: active | Tier: micro
+
+Purpose
+Define extraction rules for residential property valuation metrics.
+
+BEHAVIOR extract_valuation_metrics: Extract key valuation data from appraisal reports
+
+  RULE verbatim_value:
+    WHEN a valuation figure is found verbatim in the report
+    THEN status MUST be FACT
+    AND provenance MUST include page number
+
+  RULE derived_value:
+    WHEN a metric requires calculation or interpretation
+    THEN status MUST be INFERENCE
+    AND reasoning MUST explain the derivation
+
+  ERROR fabricated_value:
+    WHEN an extracted value cannot be traced to the source report
+    SEVERITY critical
+    ACTION reject the extraction
+    MESSAGE "Value has no source provenance — possible fabrication"
+
+  EXAMPLE basic_extraction:
+    INPUT: appraisal with market value "$650,000" on page 2
+    EXPECTED: { "value": 650000, "status": "FACT", "provenance": { "page": 2 } }
+    NOTES: Simple numeric extraction with provenance
+
+Constraints
+* All key valuation fields must be processed before completion
+```
+````
+
+That's a lot of new syntax. Let's break it down piece by piece.
+
+**The `Meta:` line** is required inside every SESF block. It uses a pipe-delimited format to declare Version, Date, Domain, Status, and Tier — all on a single line. The validator will reject an SESF block that's missing the Meta line entirely. Version must be semver (`X.Y.Z`), Status must be one of `active`, `draft`, or `deprecated`, and Tier must match one of `micro`, `standard`, or `complex`.
+
+**`BEHAVIOR` declarations** are the top-level containers for your rules. Each BEHAVIOR gets a name (like `extract_valuation_metrics`) and a one-line description after the colon. You need at least one BEHAVIOR in every SESF block. Think of a BEHAVIOR as a function definition — it groups related rules together.
+
+**`RULE` blocks** define the conditional logic inside a BEHAVIOR. The structure is always `WHEN` (the condition), `THEN` (the primary action), and optionally `AND` for additional requirements. Rules are the core of SESF — they tell the agent what to do in specific situations. Each RULE needs a name (like `verbatim_value`) so it can be referenced in error messages and test results.
+
+**`ERROR` blocks** define what happens when something goes wrong. They require three fields: `SEVERITY` (one of `critical`, `high`, `medium`, `low`), `ACTION` (what the agent should do), and `MESSAGE` (a human-readable explanation). Critical severity means the agent must stop and report the error; lower severities allow the agent to continue with a warning.
+
+**`EXAMPLE` blocks** are worked examples that serve as both documentation and test cases. They require `INPUT` (what goes in), `EXPECTED` (what should come out), and `NOTES` (why this example matters). The validator checks that EXAMPLE blocks have all three fields, but it doesn't execute the example — that's the job of the EDD test suite.
+
+**The `Constraints` section** at the end of the SESF block uses `*` bullet items to declare operational constraints specific to the behavior. This is distinct from the top-level Constraints section in the REIXS spec — the SESF Constraints are scoped to this particular behavior, while the REIXS Constraints apply to the entire task.
+
+One thing that trips people up: the SESF block has its own Meta line that's separate from the REIXS Meta section at the top of the file. They can have different versions (e.g., you might update the SESF rules without bumping the overall spec version), but the Domain and Tier should be consistent. The validator will warn if they diverge.
+
+## Step 11: Validate the Complete Spec
+
+You've now written all 10 mandatory sections. Run the validator one more time:
+
+```bash
+reixs validate my_spec.reixs.md
+```
+
+Expected result: **Status: WARN** (not FAIL). You should see zero errors and a handful of warnings. The warnings you'll see are expected:
+
+- **"Task type 'Property Valuation' not in known registry"** — This is fine. The registry currently only knows about `Lease Abstraction`, and it's designed to be extensible. Your task type is valid; the validator is just telling you it hasn't seen it before.
+
+- **"DDD Reference not found in local registry"** — Also fine. Our `re-ddd:property_valuation_bc@0.1.0` reference has correct format but points to a domain dictionary that doesn't ship with the default registry. When you (or your team) create that dictionary, this warning will disappear.
+
+If you see any **ERRORS** instead of warnings, here are quick fixes for the most common ones:
+
+- **Version not semver** — Make sure both the REIXS Meta `Version` and the SESF Meta `Version` use the `X.Y.Z` format. Not `v1.0`, not `1.0`, not `version 1` — exactly three numbers separated by dots.
+
+- **DDD Reference format invalid** — The format must be `re-ddd:<name>@X.Y.Z`. Check for typos: missing `re-ddd:` prefix, missing `@` separator, or a version that isn't semver.
+
+- **OFD fields missing** — If you're on `micro` tier, you need the 5 mandatory OFD sub-sections (Primary Objective, Hard Constraints, AutoFail Conditions, Optimization Priority Order, Uncertainty Policy). Check that your H3 headings match these names exactly. The validator normalizes casing and whitespace, but the heading text must be recognizable.
+
+## Step 12: Compile
+
+Once validation passes (status WARN or PASS — anything except FAIL), you can compile the spec into runtime artifacts:
+
+```bash
+reixs compile my_spec.reixs.md -o build/
+```
+
+This produces two files in the `build/` directory:
+
+- **`reixs.runtime.json`** — The machine-readable version of your spec. This is what agent developers actually consume.
+- **`reixs.manifest.json`** — A lightweight manifest with metadata (spec ID, version, tier, task type) for registry and discovery purposes.
+
+Inspect the runtime JSON to see what an agent developer receives:
+
+```bash
+cat build/reixs.runtime.json | python -m json.tool
+```
+
+The runtime JSON contains everything from your `.reixs.md` file, parsed and structured: the meta fields, the OFD sub-sections as keyed objects, the SESF rules decomposed into condition/action pairs, the examples as input/expected tuples. An agent developer doesn't need to parse Markdown — they load this JSON file and get a structured representation of every rule, constraint, and example you defined.
+
+The manifest JSON is much smaller — just the metadata needed to register this spec in a catalog or check compatibility between specs. Think of the runtime JSON as the "full build" and the manifest as the "package.json."
+
+---
+
+## Common Mistakes
+
+These are the top 5 validation failures we see, with exact error messages and fixes.
+
+### 1. Version is not semver
+
+```
+Error: Version 'v1.0' is not valid semver
+```
+
+**Fix:** Use the `X.Y.Z` format — three integers separated by dots. No `v` prefix, no two-part versions, no text. `0.1.0` is valid. `v1.0` is not. `1.0` is not. `1.0.0-beta` is not (pre-release tags aren't supported yet).
+
+### 2. DDD Reference format invalid
+
+```
+Error: DDD Reference 'lease_terms_v1' has invalid format
+```
+
+**Fix:** The required format is `re-ddd:<name>@X.Y.Z`. The reference `lease_terms_v1` is missing the `re-ddd:` prefix and the `@` version separator. The correct form would be `re-ddd:lease_terms@1.0.0`.
+
+### 3. EDD Suite ID required for standard/complex tier
+
+```
+Error: EDD Suite ID is required for standard tier
+```
+
+**Fix:** If your spec declares `Tier: standard` or `Tier: complex`, the Evaluation / EDD section must include an `EDD Suite ID` field pointing to a formal test suite. Either add the suite ID (e.g., `EDD Suite ID: edd-pv-bc-001`) or downgrade to `Tier: micro` if you don't have a test suite yet. Starting at micro and upgrading later is a perfectly valid workflow.
+
+### 4. SESF block has no Meta section
+
+```
+Error: SESF block missing required Meta line
+```
+
+**Fix:** Add a `Meta:` line inside the SESF fenced block. It must be a single line with pipe-delimited fields: `Meta: Version X.Y.Z | Date YYYY-MM-DD | Domain <name> | Status active | Tier micro`. This is separate from the REIXS-level Meta section — the SESF block needs its own.
+
+### 5. Complex tier requires ADR references
+
+```
+Error: Complex tier spec must include ADR References
+```
+
+**Fix:** If your spec declares `Tier: complex`, you must include an `ADR References` field in the Meta section (or a dedicated ADR section) linking to Architecture Decision Records that justify design choices. If you don't have ADRs, downgrade to `Tier: standard` or `Tier: micro`. Tier complexity is meant to be earned — don't declare complex unless the spec genuinely needs it.
+
+---
+
+## Next Steps
+
+You've written, validated, and compiled a complete REIXS spec from scratch. Here's where to go from here:
+
+- **Read the full specification:** [`REIXS-SPEC.md`](REIXS-SPEC.md) covers every section, field, and validation rule in detail. The tutorial showed you the "what" — the spec explains the "why."
+
+- **Study the lease template:** The built-in lease abstraction template (`templates/lease_abstraction_ontario.reixs.md`) is a production-grade `standard` tier spec. Compare it to the `micro` spec you just wrote — notice how it includes the 5 additional OFD sub-sections, an EDD Suite ID, and more detailed SESF rules.
+
+- **Upgrade to standard tier:** Change `Tier: micro` to `Tier: standard` in your spec and run `reixs validate` again. The validator will tell you exactly which additional sub-sections are required. Adding them is a good exercise to deepen your understanding of the format.
