@@ -334,3 +334,170 @@ No fields are required. Each bullet item is parsed as a key-value pair using the
 
 - The parser produces a list of `{"key": ..., "value": ...}` objects. Bullet items without a colon separator are stored with the full text as the key and an empty string as the value.
 - This section is intentionally unconstrained. The spec author defines whatever inputs are relevant for the task. Downstream agents use the compiled input list to understand what they will receive at runtime.
+
+### 3.5 Objective Function Design (OFD)
+
+**Canonical name:** `ofd`
+**Heading aliases:** `Objective Function Design`, `Objective Function Design (OFD)`, `OFD`
+
+The OFD section is the heart of a REIXS spec. It defines what the agent optimizes for, what it must never do, how it handles uncertainty, and how outputs are scored. The section uses H3 subsections — up to 10 — each with its own format and validation rules. Five subsections are mandatory for all tiers; five are tier-dependent.
+
+All OFD validation runs in **Pass 2** (OFD validation).
+
+#### 3.5.1 Mandatory sub-sections (all tiers)
+
+These five sub-sections are required regardless of tier. A missing or empty sub-section produces a **Pass 2 error**.
+
+| Sub-Section | H3 Heading | Format | Validation |
+|---|---|---|---|
+| Primary Objective | `### Primary Objective` | Paragraph (free text) | Pass 2 error if empty |
+| Hard Constraints | `### Hard Constraints` | Bullet list | Pass 2 error if empty list |
+| AutoFail Conditions | `### AutoFail Conditions` | Bullet list | Pass 2 error if empty list |
+| Optimization Priority Order | `### Optimization Priority Order` | Ordered list | Pass 2 error if empty list. Pass 2 warning if the combined text does not contain "factual", "accuracy", or "correct" |
+| Uncertainty Policy | `### Uncertainty Policy` | Paragraph (free text) | Pass 2 error if empty |
+
+**Primary Objective** is stored as a string (paragraph text under the H3 heading). It declares the single overarching goal of the spec.
+
+**Hard Constraints** is a bullet list of absolute rules the agent must never violate. Each bullet is stored as a plain string.
+
+**AutoFail Conditions** is a bullet list of conditions that cause automatic failure. Each bullet is stored as a plain string.
+
+**Optimization Priority Order** is an ordered (numbered) list declaring which qualities the agent should prioritize, in rank order. The parser extracts ordered list items into a `list[str]`. A heuristic check warns if the combined text of all priorities does not mention "factual", "accuracy", or "correct" — this is a warning, not an error, and is intended to remind spec authors to include factual correctness as a priority.
+
+**Uncertainty Policy** is stored as a string (paragraph text). It defines how the agent should behave when inputs are ambiguous, incomplete, or contradictory.
+
+#### 3.5.2 Tier-dependent sub-sections
+
+These five sub-sections have severity that varies by tier. The logic is:
+
+- **standard** or **complex** tier: missing sub-section is a **Pass 2 error**
+- **micro** tier: missing sub-section is a **Pass 2 info** (informational, does not block validation)
+
+| Sub-Section | H3 Heading | Format | micro | standard | complex |
+|---|---|---|---|---|---|
+| Secondary Objectives | `### Secondary Objectives` | Bullet list | info | error | error |
+| Tradeoff Policies | `### Tradeoff Policies` | Bullet list | info | error | error |
+| Scoring Model | `### Scoring Model` | Bullet list (special) | info | error | error |
+| Escalation Triggers | `### Escalation Triggers` | Bullet list | info | error | error |
+| Error Severity Model | `### Error Severity Model` | Bullet list (special) | info | error | error |
+
+**Secondary Objectives** is a bullet list of goals that complement the primary objective. Each bullet is stored as a plain string.
+
+**Tradeoff Policies** is a bullet list defining how the agent should resolve conflicts between competing objectives or constraints.
+
+**Scoring Model** uses bullet list syntax, but the parser joins all bullet items into a single string with newline separators (see `section_model.py:_build_scoring_model`). The result is stored as `str | dict | None` in the data model, though the most common case is a newline-joined string. This allows spec authors to describe a scoring rubric as a multi-line block without requiring structured key-value format.
+
+**Escalation Triggers** is a bullet list of conditions that should cause the agent to stop and escalate to a human reviewer rather than proceeding autonomously.
+
+**Error Severity Model** uses a special bullet list format. Each bullet must follow the pattern:
+
+```
+- severity: error_type_1, error_type_2, ...
+```
+
+The parser splits each bullet on the first `:` to extract the severity level, then splits the remainder on `,` to extract individual error types. The result is a dictionary mapping severity levels to lists of error types:
+
+```json
+{
+  "critical": ["fabricated term", "wrong currency", "wrong dates"],
+  "high": ["missing critical field without flag", "provenance gap"],
+  "medium": ["formatting inconsistency"],
+  "low": ["minor style deviation"]
+}
+```
+
+This is the only sub-section in OFD with structured parsing beyond plain string/list extraction.
+
+#### Data model
+
+The parsed OFD section maps to the following Pydantic model:
+
+```python
+class OFDSection(BaseModel):
+    primary_objective: str
+    hard_constraints: list[str]
+    autofail_conditions: list[str]
+    optimization_priority_order: list[str]
+    uncertainty_policy: str
+    secondary_objectives: list[str] | None = None
+    tradeoff_policies: list[str] | None = None
+    scoring_model: str | dict | None = None
+    escalation_triggers: list[str] | None = None
+    error_severity_model: dict[str, list[str]] | None = None
+```
+
+Fields that are `None` indicate the sub-section was not present in the spec. This is distinct from an empty list or empty string, which indicates the sub-section heading was present but had no content.
+
+#### Example
+
+A complete OFD section showing all 10 sub-sections:
+
+```markdown
+## Objective Function Design (OFD)
+
+### Primary Objective
+Extract all lease terms defined in the DDD with factual accuracy >= 98%,
+producing a normalized term sheet suitable for portfolio analysis.
+
+### Hard Constraints
+- NEVER fabricate a term not present in the source document
+- ALL extracted values MUST carry provenance (page, paragraph, or clause reference)
+- Currency values MUST use CAD unless the source explicitly states otherwise
+- Date values MUST use ISO 8601 format (YYYY-MM-DD)
+
+### AutoFail Conditions
+- Any fabricated lease term (value not traceable to source)
+- Missing provenance on a critical field (rent, term, tenant name)
+- Wrong currency assignment on a financial term
+- Misidentified parties (landlord/tenant swapped)
+
+### Optimization Priority Order
+1. Factual correctness — no fabricated or hallucinated values
+2. Completeness — extract every DDD-defined field present in the source
+3. Provenance quality — every value traceable to a specific location
+4. Normalization consistency — dates, currencies, and units in standard format
+5. Confidence calibration — uncertainty scores reflect actual ambiguity
+
+### Uncertainty Policy
+When a term is ambiguous or not explicitly stated, mark the field status as
+INFERENCE with a confidence score between 0.0 and 1.0. If confidence is below
+0.5, additionally flag the field for human review. Never guess — if the value
+cannot be reasonably inferred, mark as NOT_FOUND rather than fabricating.
+
+### Secondary Objectives
+- Minimize human review burden by providing clear provenance
+- Maintain consistent formatting across all extracted fields
+- Flag potential lease anomalies (e.g., unusual escalation clauses)
+
+### Tradeoff Policies
+- When completeness conflicts with accuracy, prefer accuracy (skip the field rather than guess)
+- When normalization conflicts with source fidelity, preserve the source value and add a normalized alternative
+- When confidence is borderline (0.4-0.6), flag for review rather than committing to FACT or NOT_FOUND
+
+### Scoring Model
+- Factual accuracy: 40% weight — percentage of extracted values that are correct
+- Completeness: 25% weight — percentage of DDD fields successfully extracted
+- Provenance coverage: 20% weight — percentage of values with valid source references
+- Normalization: 10% weight — percentage of values in standard format
+- Confidence calibration: 5% weight — correlation between confidence scores and actual accuracy
+
+### Escalation Triggers
+- Document appears to be in a language other than English or French
+- More than 30% of DDD-defined fields are NOT_FOUND
+- Document page count exceeds 200 pages
+- Multiple conflicting values found for the same field with no clear resolution
+
+### Error Severity Model
+- critical: fabricated term, wrong currency, wrong dates, misidentified parties
+- high: missing critical field without flag, provenance gap on financial term
+- medium: formatting inconsistency, low-confidence value not flagged for review
+- low: minor style deviation, optional field not extracted
+```
+
+#### Notes
+
+- H3 heading text is normalized to `snake_case` for the subsection key. `### Primary Objective` becomes `primary_objective`, `### AutoFail Conditions` becomes `autofail_conditions`, etc.
+- The Optimization Priority Order uses an ordered (numbered) Markdown list. The parser strips the leading number and period from each item. Using a bullet list instead will still work (items are stored as strings either way), but an ordered list is recommended to make rank order explicit.
+- The "factual/accuracy/correct" heuristic check on Optimization Priority Order is case-insensitive. It joins all list items, lowercases the result, and checks for substring matches. The warning is advisory — it does not prevent validation from passing.
+- For micro-tier specs, the five tier-dependent sub-sections can be omitted entirely without affecting validation outcome (info-level findings do not block validation). This allows lightweight specs to focus on the five mandatory sub-sections.
+- The Error Severity Model parser is lenient: it strips leading `-` and whitespace from each line before splitting on `:`. Severity levels are not constrained to a fixed set — the spec author defines whatever levels are appropriate (though `critical`, `high`, `medium`, `low` is the conventional set).
