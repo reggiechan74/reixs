@@ -24,6 +24,14 @@ reixs validate my_spec.reixs.md
 reixs compile my_spec.reixs.md -o build/
 ```
 
+## Documentation
+
+| Document | Purpose |
+|---|---|
+| [Format Specification](docs/REIXS-SPEC.md) | Authoritative reference for the `.reixs.md` format — sections, fields, validation rules |
+| [Tutorial](docs/TUTORIAL.md) | Step-by-step guide to writing your first REIXS spec |
+| [README](README.md) | Tool overview, CLI commands, architecture (this file) |
+
 ## Commands
 
 | Command | Description |
