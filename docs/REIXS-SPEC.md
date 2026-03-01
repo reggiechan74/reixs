@@ -501,3 +501,336 @@ cannot be reasonably inferred, mark as NOT_FOUND rather than fabricating.
 - The "factual/accuracy/correct" heuristic check on Optimization Priority Order is case-insensitive. It joins all list items, lowercases the result, and checks for substring matches. The warning is advisory — it does not prevent validation from passing.
 - For micro-tier specs, the five tier-dependent sub-sections can be omitted entirely without affecting validation outcome (info-level findings do not block validation). This allows lightweight specs to focus on the five mandatory sub-sections.
 - The Error Severity Model parser is lenient: it strips leading `-` and whitespace from each line before splitting on `:`. Severity levels are not constrained to a fixed set — the spec author defines whatever levels are appropriate (though `critical`, `high`, `medium`, `low` is the conventional set).
+
+### 3.6 Constraints
+
+**Canonical name:** `constraints`
+**Heading aliases:** `Constraints`
+
+The Constraints section lists operational limits on how the task executes — time budgets, format restrictions, connectivity requirements, and similar boundaries. It uses a bullet list.
+
+#### Format
+
+Each bullet is stored as a plain string. Bullets that follow the `Key: Value` pattern are accepted and preserved — the parser treats items like `Processing time: < 120 seconds` as key-value pairs, but the section model reconstructs them back into `"key: value"` strings (see `_build_constraints` in `section_model.py`). The net effect is that both plain bullets and key-value bullets appear identically in the compiled output: a flat list of strings.
+
+#### Data model
+
+```python
+class ConstraintsSection(BaseModel):
+    items: list[str]
+```
+
+#### Validation
+
+No structural, domain, or cross-field validation rules apply to this section. It has no required fields and no content checks.
+
+| Constraint | Validation |
+|---|---|
+| (none) | No validation |
+
+#### Example
+
+```markdown
+## Constraints
+
+- Processing time: < 120 seconds per document
+- Output format: JSON
+- No external API calls during extraction
+- Maximum input size: 200 pages
+```
+
+#### Notes
+
+- The section model's `_build_constraints` function handles three input shapes: (1) a dict with key-value pairs from the parser — keys and values are re-joined as `"key: value"` strings; (2) a dict with an `_items` key containing plain bullet strings — items are included directly; (3) a plain list of strings — passed through as-is.
+- Because key-value bullets are reconstructed into plain strings, the compiled output does not distinguish between `Processing time: < 120 seconds` (parsed as k/v) and `No external API calls during extraction` (parsed as plain text). Both appear as flat string items.
+
+### 3.7 Output Contract
+
+**Canonical name:** `output_contract`
+**Heading aliases:** `Output Contract`
+
+The Output Contract section defines what the task produces. It consists of a description paragraph followed by field definitions using backtick-wrapped names in `Key: Value` bullet syntax.
+
+#### Format
+
+The section typically contains:
+
+1. A **description paragraph** — free text explaining the output structure and requirements.
+2. A **field definition list** — bullets where the key is a backtick-wrapped field name (e.g., `` `value` ``) and the value describes that field.
+
+The parser stores the paragraph under `_text` and the key-value bullets as regular dict entries. The section model (`_build_output_contract`) strips backticks from field names when constructing the `OutputContractSection`.
+
+#### Data model
+
+```python
+class OutputContractSection(BaseModel):
+    description: str
+    fields: list[dict[str, str]]  # [{"name": "...", "description": "..."}, ...]
+```
+
+- `description` holds the paragraph text (from `_text`).
+- `fields` is a list of `{"name": ..., "description": ...}` dicts, one per backtick-wrapped field definition. The backticks are stripped from the name.
+
+#### Validation
+
+| Rule | Pass | Severity | Condition |
+|---|---|---|---|
+| Provenance/status mention | Pass 3 (Domain) | warning | Description does not contain "provenance" or "status" (case-insensitive) |
+| Provenance consistency | Pass 5 (Cross-field) | warning | OFD Hard Constraints mention "provenance" but the output contract description does not |
+
+The Pass 3 check (`validate/domain.py:54-61`) lowercases the description and checks for substring matches against both `"provenance"` and `"status"`. If neither is found, a warning is emitted suggesting the author include provenance and fact/inference status.
+
+The Pass 5 check (`validate/cross_field.py:24-32`) joins all OFD hard constraint strings, lowercases them, and checks for `"provenance"`. If found, it then checks the output contract description for the same substring. A warning fires if the hard constraints mention provenance but the output contract does not — indicating a potential gap between what is required and what is delivered.
+
+#### Example
+
+```markdown
+## Output Contract
+
+Each extracted field MUST include the following attributes:
+
+- `value`: the extracted or derived value
+- `status`: one of FACT, INFERENCE, NOT_FOUND
+- `confidence`: float 0.0-1.0 (1.0 for FACT)
+- `provenance`: page and clause reference from source document
+- `notes`: optional free-text annotation
+```
+
+#### Notes
+
+- The backtick-stripping logic uses Python's `str.strip("`")`. Field names like `` `value` `` become `value` in the compiled output.
+- Only the `description` (paragraph text) is checked by validation. Field definitions are not individually validated.
+- The provenance/status warning is advisory — it does not prevent validation from passing. It is a reminder that real estate extraction specs typically need provenance tracking.
+
+### 3.8 Evaluation / EDD
+
+**Canonical name:** `evaluation`
+**Heading aliases:** `Evaluation`, `Evaluation / EDD`, `Eval`, `EDD`
+
+The Evaluation section defines how the task output is tested. It uses `Key: Value` bullet syntax for structured fields, with an optional comma-separated list for regression cases.
+
+#### Fields
+
+| Field | Key in Markdown | Required | Format | Validation |
+|---|---|---|---|---|
+| EDD Suite ID | `EDD Suite ID` | Tier-dependent | Non-empty string | Pass 3 error if empty and tier is `standard` or `complex` |
+| Minimum pass rate | `Minimum pass rate` | No | Free text (e.g., `95%`) | No validation |
+| Zero tolerance | `Zero tolerance` | No | Free text | No validation |
+| Regression cases | `Regression cases` | No | Comma-separated list | Parsed into `list[str]` |
+
+The EDD Suite ID is the only field with a validation rule. The Pass 3 check (`validate/domain.py:63-71`) requires it for `standard` and `complex` tiers. For `micro` tier, it is optional.
+
+#### Data model
+
+```python
+class EvaluationSection(BaseModel):
+    edd_suite_id: str | None = None
+    min_pass_rate: str | None = None
+    zero_tolerance: str | None = None
+    regression_cases: list[str] = []
+    raw_text: str = ""
+```
+
+The `raw_text` field stores a reconstructed `"key: value"` representation of all non-internal fields, joined with newlines. This provides a fallback for sections that are written as free text rather than structured key-value bullets.
+
+#### Parsing details
+
+- The `regression_cases` field is parsed from a comma-separated string. The value `"case-001, case-002, case-003"` becomes `["case-001", "case-002", "case-003"]`.
+- The parser also accepts `min_pass_rate` as an alias for `minimum_pass_rate` (the section model checks both keys).
+- If the entire section is written as free text (a paragraph rather than bullets), the model stores it in `raw_text` with all structured fields set to `None`.
+
+#### Validation
+
+| Rule | Pass | Severity | Condition |
+|---|---|---|---|
+| EDD Suite ID required | Pass 3 (Domain) | error | Tier is `standard` or `complex` and `edd_suite_id` is empty or absent |
+
+#### Example
+
+```markdown
+## Evaluation / EDD
+
+- EDD Suite ID: EDD-LA-ON-001
+- Minimum pass rate: 95%
+- Zero tolerance: fabricated term, wrong currency
+- Regression cases: case-001, case-002, case-003
+```
+
+#### Notes
+
+- The `micro` tier exempts the EDD Suite ID requirement entirely — no error, no warning.
+- The `raw_text` field exists because the parser cannot distinguish between a section that was intentionally written as free text and one where the author forgot to use bullet syntax. The raw text provides a safety net for downstream consumers.
+
+### 3.9 Behavior Spec (SESF)
+
+**Canonical name:** `behavior_spec`
+**Heading aliases:** `Behavior Spec`, `Behavior Spec (SESF)`, `SESF`, `Behavior`
+
+The Behavior Spec section contains machine-parseable behavioral rules written in the Structured English Specification Format (SESF) v3. The SESF block must appear inside a fenced code block with the language tag `sesf`.
+
+#### Format
+
+The section must contain at least one fenced code block with `lang: "sesf"`. The parser's SESF extractor (`parser/sesf_extractor.py:6-16`) looks specifically in the `behavior_spec` section for code blocks tagged `sesf` and returns their raw text content.
+
+````markdown
+## Behavior Spec (SESF)
+
+```sesf
+Title Line
+
+Meta: Version 1.0.0 | Date: 2026-03-01 | Domain: Lease Abstraction | Status: active | Tier: micro
+
+BEHAVIOR extract_terms: Extract and classify lease terms
+  RULE verbatim_extraction:
+    WHEN a field value is found verbatim in the source document
+    THEN status MUST be FACT
+```
+````
+
+If multiple `sesf` code blocks are present, their contents are joined with double newlines (`\n\n`) into a single `raw_sesf` string.
+
+#### Data model
+
+```python
+class BehaviorSpecSection(BaseModel):
+    raw_sesf: str
+    sesf_blocks: list[str]  # individual block contents
+```
+
+#### Validation (Pass 4 — SESF)
+
+SESF validation runs as Pass 4 in the pipeline. The adapter (`sesf/adapter.py`) performs a multi-stage check:
+
+| Rule | Severity | Condition |
+|---|---|---|
+| Empty SESF block | error | `raw_sesf` is empty or whitespace-only |
+| Missing Meta line | error | SESF block parses but contains no `Meta:` line |
+| Structural/consistency failures | error (or warning with `--no-strict-sesf`) | SESF internal validation detects structural incompleteness, error inconsistency, or example inconsistency |
+
+**Empty SESF block** (`sesf/adapter.py:26-35`): If the `raw_sesf` text is empty or whitespace-only, a Pass 4 error is emitted immediately and no further SESF checks run.
+
+**Missing Meta line** (`sesf/adapter.py:58-66`): If the SESF parser finds no `Meta` section in the block, a Pass 4 error is emitted with a suggestion to add the Meta line.
+
+**Structural/consistency failures**: If the Meta line is present, the adapter runs three SESF validation checks — structural completeness, error consistency, and example consistency. Each SESF `FAIL` result maps to a REIXS `error`; each `WARN` maps to a `warning`; each `PASS` maps to `info`.
+
+**The `--no-strict-sesf` flag**: When passed on the CLI, all SESF errors are downgraded to warnings. This is implemented in the validation runner (`validate/__init__.py:38-43`) — if `strict_sesf` is `False`, any finding with `severity == "error"` from the SESF pass is changed to `"warning"` before being added to the report. This allows compilation to proceed despite SESF issues during early spec development.
+
+#### SESF v3 Quick Reference
+
+The SESF block uses a domain-specific language with these constructs:
+
+| Construct | Syntax | Purpose |
+|---|---|---|
+| Meta | `Meta: Version X.Y.Z \| Date: YYYY-MM-DD \| Domain: ... \| Status: active \| Tier: micro` | Document metadata (required) |
+| BEHAVIOR | `BEHAVIOR name: description` | Named behavior declaration |
+| RULE | `RULE name:` then `WHEN` / `THEN` / `AND` clauses | Conditional rule within a behavior |
+| ERROR | `ERROR name:` then `WHEN` / `SEVERITY` / `ACTION` / `MESSAGE` clauses | Error handling rule |
+| EXAMPLE | `EXAMPLE name:` then `INPUT:` / `EXPECTED:` / `NOTES:` | Test example for validation |
+| Constraints | `Constraints` header then `* item` bullets | Operational constraints within SESF |
+
+For the full SESF v3 specification, see: https://github.com/reggiechan74/cc-plugins/tree/main/structured-english
+
+#### Minimal valid SESF block
+
+````markdown
+```sesf
+Lease Term Extraction Rules
+
+Meta: Version 1.0.0 | Date: 2026-03-01 | Domain: Lease Abstraction | Status: active | Tier: micro
+
+BEHAVIOR extract_lease_terms: Extract and classify lease terms from source documents
+  RULE verbatim_extraction:
+    WHEN a field value is found verbatim in the source document
+    THEN status MUST be FACT
+    AND confidence MUST be 1.0
+```
+````
+
+This block satisfies all Pass 4 checks: it is non-empty, contains a Meta line, and has at least one BEHAVIOR with a RULE.
+
+#### Example (full section)
+
+````markdown
+## Behavior Spec (SESF)
+
+```sesf
+Lease Term Extraction Rules
+
+Meta: Version 1.0.0 | Date: 2026-03-01 | Domain: Lease Abstraction | Status: active | Tier: micro
+
+BEHAVIOR extract_lease_terms: Extract and classify lease terms from source documents
+  RULE verbatim_extraction:
+    WHEN a field value is found verbatim in the source document
+    THEN status MUST be FACT
+    AND confidence MUST be 1.0
+
+  RULE inferred_value:
+    WHEN a field value is derived through inference
+    THEN status MUST be INFERENCE
+    AND confidence MUST be between 0.0 and 1.0
+
+  ERROR missing_critical_field:
+    WHEN a DDD-required field is not found in the source
+    SEVERITY high
+    ACTION flag for human review
+    MESSAGE "Required field {field_name} not found in source document"
+
+EXAMPLE basic_extraction:
+  INPUT: "The annual base rent is $50,000 CAD"
+  EXPECTED: value=$50,000, status=FACT, confidence=1.0, provenance=page 3 clause 4.1
+  NOTES: Direct extraction — no inference needed
+```
+````
+
+#### Notes
+
+- The SESF extractor only looks for code blocks with the exact language tag `sesf`. Other language tags (e.g., `markdown`, `json`, `python`) in the Behavior Spec section are ignored.
+- The `raw_sesf` field in the data model is the concatenation of all SESF blocks. If there is exactly one block (the typical case), `raw_sesf` equals that block's content directly.
+- SESF validation is the only pass with a strict/lenient toggle. All other passes always enforce their rules at the declared severity level.
+
+### 3.10 Validation Checklist
+
+**Canonical name:** `validation_checklist`
+**Heading aliases:** `Validation Checklist`, `Checklist`
+
+The Validation Checklist section is a self-audit tool for spec authors. It uses Markdown checkbox syntax to list items the author should verify before finalizing the spec.
+
+#### Format
+
+Each item uses Markdown checkbox syntax: `- [ ] item text` (unchecked) or `- [x] item text` (checked). During parsing (`markdown_parser.py:124-126`), checkbox markers are stripped using the regex `^\[[ x]\]\s*`, leaving only the item text. The check state is not preserved — both `- [ ] item` and `- [x] item` produce the same output string.
+
+#### Data model
+
+The validation checklist is stored as a flat `list[str]` on the `ReixsSpec` model (not a dedicated section class):
+
+```python
+class ReixsSpec(BaseModel):
+    ...
+    validation_checklist: list[str]
+```
+
+#### Validation
+
+| Rule | Pass | Severity | Condition |
+|---|---|---|---|
+| Empty checklist | Pass 1 (Structural) | warning | The checklist has zero items after parsing |
+
+The Pass 1 check (`validate/structural.py:45-50`) warns if the checklist is empty. This is a warning, not an error — an empty checklist does not block validation.
+
+#### Example
+
+```markdown
+## Validation Checklist
+
+- [ ] All DDD-defined fields addressed in output contract
+- [ ] Hard constraints are machine-checkable (no subjective language)
+- [ ] SESF rules cover extraction, conflict, and missing-value scenarios
+- [ ] Provenance requirements consistent between OFD and output contract
+- [x] Error severity model covers all AutoFail conditions
+```
+
+#### Notes
+
+- Checkbox state is intentionally discarded. The checklist serves as a prompt for the spec author during authoring, not as a runtime input. The compiled output contains only the item text.
+- The parser applies checkbox stripping only in the `validation_checklist` section (gated by `current_section == "validation_checklist"` in the parser). Checkbox syntax in other sections is not stripped.
+- The empty-checklist warning is one of the lightest validations in the pipeline. It exists to remind authors to include self-audit items, but does not prescribe what those items should be.
