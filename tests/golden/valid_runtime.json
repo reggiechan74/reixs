@@ -1,0 +1,83 @@
+{
+  "spec_metadata": {
+    "spec_id": "REIXS-LA-ON-001",
+    "version": "1.0.0",
+    "task_type": "Lease Abstraction",
+    "tier": "standard",
+    "author": "Reggie Chan",
+    "date": "2026-03-01"
+  },
+  "task_context": {
+    "objective": "Extract structured lease terms from a commercial lease document (Ontario jurisdiction)\nand produce a normalized term sheet with field-level provenance.",
+    "jurisdiction": "Ontario, Canada",
+    "currency": "CAD",
+    "area_unit": "sq ft (default), sq m (accepted)"
+  },
+  "ofd": {
+    "primary_objective": "Extract all lease terms defined in DDD with factual accuracy >= 98%.",
+    "hard_constraints": [
+      "NEVER fabricate a term not present in the source document",
+      "NEVER silently resolve conflicting dates \u2014 flag as CONFLICT",
+      "ALL extracted values MUST carry provenance (page, clause, verbatim quote)",
+      "Currency MUST be CAD unless explicitly stated otherwise in source"
+    ],
+    "autofail_conditions": [
+      "Any fabricated term (not traceable to source text)",
+      "Missing commencement_date without MISSING status flag",
+      "Provenance absent on any FACT-status field"
+    ],
+    "optimization_priority_order": [
+      "Factual correctness",
+      "Completeness of extraction",
+      "Provenance quality",
+      "Formatting consistency"
+    ],
+    "uncertainty_policy": "When a term is ambiguous or requires interpretation, mark as INFERENCE\nwith confidence score and reasoning. Never present inferences as facts."
+  },
+  "behavior_rules": {
+    "raw_sesf": "Lease Term Extraction Rules\n\nMeta: Version 1.0.0 | Date: 2026-03-01 | Domain: Lease Abstraction | Status: active | Tier: micro\n\nPurpose\nDefine extraction, conflict detection, and provenance rules for commercial lease term extraction.\n\nBEHAVIOR extract_lease_terms: Extract and classify lease terms from source document\n\n  RULE verbatim_extraction:\n    WHEN a field value is found verbatim in the source document\n    THEN status MUST be FACT\n    AND provenance MUST include page number, clause reference, and verbatim quote\n\n  RULE inference_handling:\n    WHEN a field value requires interpretation or calculation\n    THEN status MUST be INFERENCE\n    AND confidence score MUST be provided (0.0 to 1.0)\n    AND reasoning MUST explain how the value was derived\n\n  RULE missing_field:\n    WHEN a DDD-defined field is not found in the source document\n    THEN status MUST be MISSING\n    AND the value field MUST be null\n    AND the agent MUST NOT fabricate a value\n\n  RULE conflict_detection:\n    WHEN multiple conflicting values are found for the same field\n    THEN status MUST be CONFLICT\n    AND all conflicting values MUST be listed with individual provenance\n    AND reasoning MUST explain the nature of the conflict\n\n  RULE currency_default:\n    WHEN currency is not explicitly stated in the source document\n    THEN assume CAD for Ontario jurisdiction leases\n\n  ERROR fabricated_value:\n    WHEN an extracted value cannot be traced to source text\n    SEVERITY critical\n    ACTION reject the extraction and flag for human review\n    MESSAGE \"Extracted value has no source provenance \u2014 possible fabrication\"\n\n  ERROR missing_provenance:\n    WHEN a FACT-status field lacks provenance metadata\n    SEVERITY critical\n    ACTION fail validation for this field\n    MESSAGE \"FACT-status field requires provenance (page, clause, verbatim quote)\"\n\n  EXAMPLE standard_extraction:\n    INPUT: lease document with commencement date \"January 1, 2026\" on page 3, clause 2.1\n    EXPECTED: { \"value\": \"2026-01-01\", \"status\": \"FACT\", \"provenance\": { \"page\": 3, \"clause\": \"2.1\", \"verbatim_quote\": \"January 1, 2026\" } }\n    NOTES: Clear verbatim extraction with full provenance\n\n  EXAMPLE conflicting_dates:\n    INPUT: lease with \"commencing January 1, 2026\" in clause 2.1 and \"effective March 1, 2026\" in clause 5.3\n    EXPECTED: { \"status\": \"CONFLICT\", \"values\": [\"2026-01-01\", \"2026-03-01\"], \"reasoning\": \"Conflicting commencement dates in clauses 2.1 and 5.3\" }\n    NOTES: Conflicting dates MUST be flagged, never silently resolved\n\n  EXAMPLE missing_term:\n    INPUT: lease document with no operating cost provisions\n    EXPECTED: { \"value\": null, \"status\": \"MISSING\" }\n    NOTES: Missing field with MISSING status \u2014 no fabrication\n\nConstraints\n* Extraction MUST process all fields defined in DDD reference before completion\n",
+    "block_count": 1
+  },
+  "output_contract": {
+    "description": "Each extracted field MUST include:",
+    "fields": [
+      {
+        "name": "value",
+        "description": "the extracted or derived value"
+      },
+      {
+        "name": "status",
+        "description": "FACT | INFERENCE | MISSING | CONFLICT"
+      },
+      {
+        "name": "provenance",
+        "description": "{ page, clause, verbatim_quote } (required for FACT status)"
+      },
+      {
+        "name": "confidence",
+        "description": "0.0-1.0 (required for INFERENCE status)"
+      },
+      {
+        "name": "reasoning",
+        "description": "string (required for INFERENCE and CONFLICT status)"
+      }
+    ]
+  },
+  "eval_config": {
+    "edd_suite_id": "edd:lease_abstraction_core_v1",
+    "min_pass_rate": "95%",
+    "regression_cases": [
+      "basic_valid_case",
+      "conflicting_dates_case",
+      "missing_commencement_case"
+    ]
+  },
+  "references": {
+    "ddd_reference": "re-ddd:lease_core_terms_ontario@0.1.0",
+    "adr_references": [
+      "ADR-001",
+      "ADR-003"
+    ]
+  },
+  "validation_status": "warn"
+}

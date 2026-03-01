@@ -1,0 +1,165 @@
+{
+  "spec_id": "REIXS-LA-ON-001",
+  "spec_version": "1.0.0",
+  "findings": [
+    {
+      "pass_number": 3,
+      "severity": "warning",
+      "section": "output_contract",
+      "field": null,
+      "message": "Output contract does not mention provenance or status fields",
+      "suggestion": "Include provenance and fact/inference status in output contract"
+    },
+    {
+      "pass_number": 4,
+      "severity": "info",
+      "section": "behavior_spec",
+      "field": "meta",
+      "message": "[SESF] Tier declared: micro",
+      "suggestion": null
+    },
+    {
+      "pass_number": 4,
+      "severity": "info",
+      "section": "behavior_spec",
+      "field": "sections",
+      "message": "[SESF] Required section 'Behaviors' present",
+      "suggestion": null
+    },
+    {
+      "pass_number": 4,
+      "severity": "info",
+      "section": "behavior_spec",
+      "field": "sections",
+      "message": "[SESF] Required section 'Meta' present",
+      "suggestion": null
+    },
+    {
+      "pass_number": 4,
+      "severity": "info",
+      "section": "behavior_spec",
+      "field": "sections",
+      "message": "[SESF] Required section 'Purpose' present",
+      "suggestion": null
+    },
+    {
+      "pass_number": 4,
+      "severity": "info",
+      "section": "behavior_spec",
+      "field": "meta",
+      "message": "[SESF] Meta field 'date' present: 2026-03-01",
+      "suggestion": null
+    },
+    {
+      "pass_number": 4,
+      "severity": "info",
+      "section": "behavior_spec",
+      "field": "meta",
+      "message": "[SESF] Meta field 'domain' present: Lease Abstraction",
+      "suggestion": null
+    },
+    {
+      "pass_number": 4,
+      "severity": "info",
+      "section": "behavior_spec",
+      "field": "meta",
+      "message": "[SESF] Meta field 'status' present: active",
+      "suggestion": null
+    },
+    {
+      "pass_number": 4,
+      "severity": "info",
+      "section": "behavior_spec",
+      "field": "meta",
+      "message": "[SESF] Meta field 'version' present: 1.0.0",
+      "suggestion": null
+    },
+    {
+      "pass_number": 4,
+      "severity": "info",
+      "section": "behavior_spec",
+      "field": "behaviors",
+      "message": "[SESF] Found 1 BEHAVIOR block(s)",
+      "suggestion": null
+    },
+    {
+      "pass_number": 4,
+      "severity": "info",
+      "section": "behavior_spec",
+      "field": "behaviors",
+      "message": "[SESF] BEHAVIOR 'extract_lease_terms' has 5 rule(s)",
+      "suggestion": null
+    },
+    {
+      "pass_number": 4,
+      "severity": "info",
+      "section": "behavior_spec",
+      "field": "error_consistency",
+      "message": "[SESF] BEHAVIOR 'extract_lease_terms' has 2 well-defined error(s)",
+      "suggestion": null
+    },
+    {
+      "pass_number": 4,
+      "severity": "info",
+      "section": "behavior_spec",
+      "field": "example_consistency",
+      "message": "[SESF] BEHAVIOR 'extract_lease_terms' has 3 example(s)",
+      "suggestion": null
+    },
+    {
+      "pass_number": 4,
+      "severity": "warning",
+      "section": "behavior_spec",
+      "field": "example_consistency",
+      "message": "[SESF] BEHAVIOR 'extract_lease_terms' has fewer examples (3) than rules (5)",
+      "suggestion": null
+    },
+    {
+      "pass_number": 5,
+      "severity": "warning",
+      "section": "output_contract",
+      "field": null,
+      "message": "OFD hard constraints mention provenance but output contract does not",
+      "suggestion": "Ensure output contract enforces provenance requirements"
+    }
+  ],
+  "pass_summaries": {
+    "1": {
+      "pass_number": 1,
+      "name": "Structural",
+      "errors": 0,
+      "warnings": 0,
+      "infos": 0
+    },
+    "2": {
+      "pass_number": 2,
+      "name": "OFD",
+      "errors": 0,
+      "warnings": 0,
+      "infos": 0
+    },
+    "3": {
+      "pass_number": 3,
+      "name": "Domain",
+      "errors": 0,
+      "warnings": 1,
+      "infos": 0
+    },
+    "4": {
+      "pass_number": 4,
+      "name": "SESF",
+      "errors": 0,
+      "warnings": 1,
+      "infos": 12
+    },
+    "5": {
+      "pass_number": 5,
+      "name": "Cross-field",
+      "errors": 0,
+      "warnings": 1,
+      "infos": 0
+    }
+  },
+  "sesf_findings": [],
+  "status": "warn"
+}
