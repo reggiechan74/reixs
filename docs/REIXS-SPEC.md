@@ -834,3 +834,325 @@ The Pass 1 check (`validate/structural.py:45-50`) warns if the checklist is empt
 - Checkbox state is intentionally discarded. The checklist serves as a prompt for the spec author during authoring, not as a runtime input. The compiled output contains only the item text.
 - The parser applies checkbox stripping only in the `validation_checklist` section (gated by `current_section == "validation_checklist"` in the parser). Checkbox syntax in other sections is not stripped.
 - The empty-checklist warning is one of the lightest validations in the pipeline. It exists to remind authors to include self-audit items, but does not prescribe what those items should be.
+
+## 4. Tier System
+
+Every REIXS spec declares a tier in its Meta section (`Tier: micro | standard | complex`). The tier controls which validation rules are enforced and at what severity. Choosing the right tier lets spec authors start lightweight and add rigor as the task matures.
+
+### 4.1 Requirement matrix
+
+| Requirement | `micro` | `standard` | `complex` |
+|---|---|---|---|
+| OFD: 5 mandatory sub-sections (Primary Objective, Hard Constraints, AutoFail Conditions, Optimization Priority Order, Uncertainty Policy) | Required (Pass 2 error) | Required (Pass 2 error) | Required (Pass 2 error) |
+| OFD: 5 additional sub-sections (Secondary Objectives, Tradeoff Policies, Scoring Model, Escalation Triggers, Error Severity Model) | Optional (Pass 2 info) | Required (Pass 2 error) | Required (Pass 2 error) |
+| EDD Suite ID | Optional (no check) | Required (Pass 3 error) | Required (Pass 3 error) |
+| ADR References | Optional (no check) | Optional (no check) | Required (Pass 5 error) |
+
+**Source:** `validate/ofd.py:64-68` (tier-dependent OFD severity), `validate/domain.py:63-71` (EDD suite requirement), `validate/cross_field.py:15-21` (ADR requirement for complex).
+
+### 4.2 Tier selection guidance
+
+| Tier | When to use | Typical section count |
+|---|---|---|
+| `micro` | Quick prototypes, simple extraction tasks, single-document workflows. You want to validate structure and core OFD without being forced to define scoring models or escalation triggers. | 10 sections, 5 OFD sub-sections |
+| `standard` | Production specs that will be compiled into runtime JSON and tested with EDD. The task is well-understood and has defined evaluation criteria. | 10 sections, 10 OFD sub-sections, EDD suite |
+| `complex` | Multi-jurisdiction tasks, tasks with architectural decision records, or specs that coordinate multiple agents. Requires full OFD, EDD, and ADR traceability. | 10 sections, 10 OFD sub-sections, EDD suite, ADR references |
+
+**Default behavior:** If the `Tier` field in Meta contains an unrecognized value (or is absent), the parser defaults to `standard`. No error or warning is emitted for the default — the spec simply inherits standard-tier validation requirements.
+
+## 5. Validation Rules Summary
+
+The REIXS validator runs five sequential passes. Each pass is independent: all passes run regardless of earlier results (no short-circuiting). After all passes complete, findings are aggregated into a validation report with a computed status.
+
+### 5.1 Status computation
+
+The final validation status is computed from the aggregate findings (`validate/report.py:36-41`):
+
+| Status | Condition |
+|---|---|
+| `fail` | Any finding has severity `error` |
+| `warn` | Any finding has severity `warning` and no findings have severity `error` |
+| `pass` | No findings have severity `error` or `warning` |
+
+Findings with severity `info` do not affect the status.
+
+### 5.2 Pass 1 — Structural validation
+
+**Source:** `validate/structural.py`
+
+Checks that the spec has the minimum required structure: valid version, non-empty identity fields, non-empty objective, and a populated checklist.
+
+| # | Field | Section | Severity | Condition |
+|---|---|---|---|---|
+| 1.1 | `version` | `meta` | error | Version string does not match `^\d+\.\d+\.\d+$` (semver) |
+| 1.2 | `spec_id` | `meta` | error | Spec ID is empty or missing |
+| 1.3 | `task_type` | `meta` | error | Task Type is empty or missing |
+| 1.4 | (entire section) | `objective` | error | Objective section is empty |
+| 1.5 | (entire section) | `validation_checklist` | warning | Validation checklist has zero items |
+
+**5 checks total** (4 errors, 1 warning).
+
+### 5.3 Pass 2 — OFD validation
+
+**Source:** `validate/ofd.py`
+
+Validates the Objective Function Design section. The first 5 checks apply at all tiers. The heuristic check is advisory. The final 5 checks have tier-dependent severity.
+
+#### Mandatory sub-sections (all tiers)
+
+| # | Field | Severity | Condition |
+|---|---|---|---|
+| 2.1 | `primary_objective` | error | Primary Objective is empty or missing |
+| 2.2 | `hard_constraints` | error | Hard Constraints list is empty |
+| 2.3 | `autofail_conditions` | error | AutoFail Conditions list is empty |
+| 2.4 | `optimization_priority_order` | error | Optimization Priority Order is empty |
+| 2.5 | `uncertainty_policy` | error | Uncertainty Policy is empty or missing |
+
+#### Heuristic check
+
+| # | Field | Severity | Condition |
+|---|---|---|---|
+| 2.6 | `optimization_priority_order` | warning | Priority order text (all items joined, lowercased) does not contain `"factual"`, `"accuracy"`, or `"correct"` |
+
+This check only fires when the priority order is non-empty (i.e., check 2.4 did not fire).
+
+#### Tier-dependent sub-sections
+
+| # | Field | micro | standard | complex | Condition |
+|---|---|---|---|---|---|
+| 2.7 | `secondary_objectives` | info | error | error | Secondary Objectives not defined |
+| 2.8 | `tradeoff_policies` | info | error | error | Tradeoff Policies not defined |
+| 2.9 | `scoring_model` | info | error | error | Scoring Model not defined |
+| 2.10 | `escalation_triggers` | info | error | error | Escalation Triggers not defined |
+| 2.11 | `error_severity_model` | info | error | error | Error Severity Model not defined |
+
+**11 checks total** (5 mandatory errors + 1 heuristic warning + 5 tier-dependent).
+
+### 5.4 Pass 3 — Domain validation
+
+**Source:** `validate/domain.py`
+
+Validates domain-specific concerns: task type registry, jurisdiction, DDD reference format and registry, output contract content, and EDD suite requirement.
+
+| # | Field | Section | Severity | Condition |
+|---|---|---|---|---|
+| 3.1 | `task_type` | `meta` | warning | Task type not found in known registry |
+| 3.2 | `jurisdiction` | `domain_context` | error | Jurisdiction is empty or missing |
+| 3.3 | `ddd_reference` | `domain_context` | error | DDD Reference is missing |
+| 3.4 | `ddd_reference` | `domain_context` | error | DDD Reference is present but has invalid format (does not match `^re-ddd:[\w_]+@\d+\.\d+\.\d+$`) |
+| 3.5 | `ddd_reference` | `domain_context` | warning | DDD Reference has valid format but is not found in local registry |
+| 3.6 | (description) | `output_contract` | warning | Output contract description does not contain `"provenance"` or `"status"` (case-insensitive) |
+| 3.7 | `edd_suite_id` | `evaluation` | error | Tier is `standard` or `complex` and EDD Suite ID is empty or absent |
+
+**Notes on DDD reference checks:** Rules 3.3, 3.4, and 3.5 form a three-level cascade. Only one fires per validation run — the check stops at the first failure.
+
+**7 checks total** (3 errors + 1 cascading error + 3 warnings, though only 1 DDD check fires per run).
+
+### 5.5 Pass 4 — SESF validation
+
+**Source:** `sesf/adapter.py`
+
+Validates the SESF (Structured English Specification Format) block embedded in the Behavior Spec section. This pass adapts the standalone SESF validator to the REIXS finding model.
+
+| # | Category | Severity | Condition |
+|---|---|---|---|
+| 4.1 | Empty block | error | `raw_sesf` is empty or whitespace-only |
+| 4.2 | Missing Meta | error | SESF block parses but contains no Meta section |
+| 4.3 | Structural/consistency | error or warning | SESF internal checks detect issues (structural completeness, error consistency, example consistency) |
+
+**Severity mapping from SESF to REIXS:**
+
+| SESF status | REIXS severity |
+|---|---|
+| `FAIL` | `error` |
+| `WARN` | `warning` |
+| `PASS` | `info` |
+
+**The `--no-strict-sesf` flag:** When enabled, all Pass 4 findings with severity `error` are downgraded to `warning`. This allows compilation to proceed despite SESF issues during early development.
+
+**3 check categories** (the number of individual findings from category 4.3 depends on the SESF block content).
+
+### 5.6 Pass 5 — Cross-field consistency
+
+**Source:** `validate/cross_field.py`
+
+Validates consistency across multiple sections. These checks reference fields from two or more sections simultaneously.
+
+| # | Field | Section(s) | Severity | Condition |
+|---|---|---|---|---|
+| 5.1 | `adr_references` | `domain_context` | error | Tier is `complex` and ADR References are absent |
+| 5.2 | (description) | `ofd` + `output_contract` | warning | OFD Hard Constraints mention `"provenance"` (case-insensitive) but output contract description does not |
+| 5.3 | `currency` | `domain_context` | warning | Jurisdiction contains `"ontario"` (case-insensitive) and currency is not declared |
+
+**3 checks total** (1 error, 2 warnings).
+
+### 5.7 Complete rule count
+
+| Pass | Name | Errors | Warnings | Infos | Total |
+|---|---|---|---|---|---|
+| 1 | Structural | 4 | 1 | 0 | 5 |
+| 2 | OFD | 5 + 5 tier-dependent | 1 | 5 (micro tier) | 11 |
+| 3 | Domain | 3-4 (cascade) | 2-3 (cascade) | 0 | 7 |
+| 4 | SESF | 2 + variable | variable | variable | 3 categories |
+| 5 | Cross-field | 1 | 2 | 0 | 3 |
+
+The maximum number of distinct rules is **29** (counting each DDD cascade branch and each tier-dependent rule at its strictest severity), though not all can fire simultaneously.
+
+## 6. Compiled Output Schema
+
+The `reixs compile` command converts a validated spec into runtime JSON artifacts. The compiler (`compile/compiler.py`) reads the parsed `ReixsSpec` and the `ValidationReport`, then emits two mandatory files and one optional file.
+
+### 6.1 Compilation gate
+
+The compiler refuses to emit any artifacts if the validation status is `"fail"` (`compiler.py:24-28`):
+
+```python
+if report.status == "fail":
+    raise ValueError(
+        f"Cannot compile spec with validation failures. "
+        f"Found {len(report.errors)} error(s). Run 'reixs validate' first."
+    )
+```
+
+A status of `"warn"` allows compilation — only `"fail"` (which requires at least one `error`-severity finding) blocks output.
+
+### 6.2 reixs.runtime.json
+
+The primary artifact consumed by downstream agents. Structure (`compiler.py:34-74`):
+
+```json
+{
+  "spec_metadata": {
+    "spec_id": "REIXS-LA-ON-001",
+    "version": "1.0.0",
+    "task_type": "Lease Abstraction",
+    "tier": "standard",
+    "author": "Reggie Chan",
+    "date": "2026-03-01"
+  },
+  "task_context": {
+    "objective": "Extract structured lease terms from a commercial lease...",
+    "jurisdiction": "Ontario, Canada",
+    "currency": "CAD",
+    "area_unit": "sq ft"
+  },
+  "ofd": {
+    "primary_objective": "Extract all lease terms defined in DDD...",
+    "hard_constraints": ["NEVER fabricate a term...", "..."],
+    "autofail_conditions": ["Any fabricated lease term...", "..."],
+    "optimization_priority_order": ["Factual correctness...", "..."],
+    "uncertainty_policy": "When a term is ambiguous..."
+  },
+  "behavior_rules": {
+    "raw_sesf": "...(full SESF block text)...",
+    "block_count": 1
+  },
+  "output_contract": {
+    "description": "Each extracted field MUST include...",
+    "fields": [
+      {"name": "value", "description": "the extracted or derived value"},
+      {"name": "status", "description": "one of FACT, INFERENCE, NOT_FOUND"}
+    ]
+  },
+  "eval_config": {
+    "edd_suite_id": "EDD-LA-ON-001",
+    "min_pass_rate": "95%",
+    "regression_cases": ["case-001", "case-002"]
+  },
+  "references": {
+    "ddd_reference": "re-ddd:lease_core_terms_ontario@0.1.0",
+    "adr_references": ["ADR-001", "ADR-003"]
+  },
+  "validation_status": "pass"
+}
+```
+
+#### Field reference
+
+| Top-level key | Source section | Description |
+|---|---|---|
+| `spec_metadata` | Meta | Spec identity: ID, version, task type, tier, author, date |
+| `task_context` | Objective + Domain Context | Runtime context: what the task does, where it applies |
+| `ofd` | OFD (5 mandatory sub-sections) | The five core OFD fields that constrain agent behavior |
+| `behavior_rules` | Behavior Spec | Raw SESF text and block count |
+| `output_contract` | Output Contract | Description and field definitions |
+| `eval_config` | Evaluation | EDD suite reference, pass rate, regression cases |
+| `references` | Domain Context | DDD and ADR references for traceability |
+| `validation_status` | Validation Report | Final status: `"pass"` or `"warn"` (never `"fail"` — compiler rejects those) |
+
+**Notes:**
+- The `ofd` object in the runtime JSON includes only the 5 mandatory sub-sections. Tier-dependent sub-sections (secondary objectives, tradeoff policies, etc.) are not included in the compiled output.
+- The `date` field in `spec_metadata` is serialized as an ISO 8601 string via Python's `date.isoformat()`.
+- The `adr_references` field defaults to an empty list `[]` if no ADR references were declared in the spec.
+- The `validation_status` will be either `"pass"` or `"warn"` — the compiler gate (section 6.1) prevents `"fail"` from reaching this point.
+
+### 6.3 reixs.manifest.json
+
+A provenance artifact that records what was compiled and when. Structure (`compiler.py:81-88`):
+
+```json
+{
+  "spec_id": "REIXS-LA-ON-001",
+  "version": "1.0.0",
+  "source_hash": "sha256:a1b2c3d4e5f6...",
+  "compile_timestamp": "2026-03-01T15:30:00+00:00",
+  "artifacts": ["reixs.runtime.json", "reixs.manifest.json"]
+}
+```
+
+| Field | Description |
+|---|---|
+| `spec_id` | Copied from `spec.meta.spec_id` |
+| `version` | Copied from `spec.meta.version` |
+| `source_hash` | SHA-256 hash of the source `.reixs.md` file (prefixed with `sha256:`) |
+| `compile_timestamp` | ISO 8601 UTC timestamp of when compilation ran |
+| `artifacts` | List of all artifact filenames produced in this compilation run |
+
+The manifest always lists itself in the `artifacts` array. The runtime JSON is added first, then the manifest filename is appended.
+
+### 6.4 reixs.validation.json (optional)
+
+Produced only when the `--include-validation` flag is passed to `reixs compile` (`compiler.py:95-98`). This artifact contains the full `ValidationReport` serialized as JSON via Pydantic's `model_dump_json()`.
+
+The file contains:
+- `spec_id` and `spec_version` — identifying the validated spec
+- `findings` — the complete list of `Finding` objects (pass number, severity, section, field, message, suggestion)
+- `pass_summaries` — per-pass error/warning/info counts
+- `status` — the computed validation status (`"pass"` or `"warn"`)
+
+This artifact is useful for CI pipelines that want to inspect validation results programmatically without re-running the validator.
+
+## 7. Heading Aliases Reference
+
+The parser resolves H2 headings to canonical section names using a case-insensitive alias lookup table (`parser/markdown_parser.py:20-40`). Before lookup, the heading text is stripped of Markdown formatting characters (`#`, `*`, `_`, `` ` ``) and trimmed.
+
+### 7.1 Complete alias table
+
+| Canonical name | Accepted heading strings |
+|---|---|
+| `meta` | Meta |
+| `objective` | Objective |
+| `domain_context` | Domain Context, Domain |
+| `inputs` | Inputs, Input |
+| `ofd` | Objective Function Design, Objective Function Design (OFD), OFD |
+| `constraints` | Constraints |
+| `output_contract` | Output Contract |
+| `evaluation` | Evaluation, Evaluation / EDD, Eval, EDD |
+| `behavior_spec` | Behavior Spec, Behavior Spec (SESF), SESF, Behavior |
+| `validation_checklist` | Validation Checklist, Checklist |
+
+### 7.2 Resolution algorithm
+
+The heading normalization function (`_normalize_heading` in `markdown_parser.py:48-56`) follows two steps:
+
+1. **Direct lookup:** The heading text is stripped of leading/trailing whitespace, lowercased, and looked up in the alias table. If found, the canonical name is returned.
+
+2. **Format-stripped lookup:** If direct lookup fails, all Markdown formatting characters (`#`, `*`, `_`, `` ` ``) are removed via `re.sub(r"[#*_`]", "", text)`, the result is stripped and lowercased, and looked up again. If found, the canonical name is returned.
+
+3. **No match:** If neither lookup succeeds, the function returns `None` and the heading is ignored (its content is not captured as a section).
+
+**Practical implications:**
+- `## Meta`, `## **Meta**`, `## _Meta_`, and `## `Meta`` all resolve to the `meta` section.
+- `## My Custom Section` does not match any alias and is silently ignored.
+- Matching is case-insensitive: `## DOMAIN CONTEXT`, `## Domain Context`, and `## domain context` all resolve to `domain_context`.
+- The alias table is defined in code (`SECTION_ALIASES` dict) and is not user-extensible at runtime.
