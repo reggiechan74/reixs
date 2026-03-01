@@ -11,7 +11,7 @@
 
 ## Objective
 
-Extract structured lease terms from a commercial lease document (any North American jurisdiction) across 24 standardized sections, producing field-level output with provenance and status tracking in both JSON and markdown formats.
+Extract structured lease terms from a commercial lease document (any North American jurisdiction) across 25 standardized sections, producing field-level output with provenance and status tracking in both JSON and markdown formats.
 
 ## Domain Context
 
@@ -30,7 +30,7 @@ Extract structured lease terms from a commercial lease document (any North Ameri
 ## Objective Function Design (OFD)
 
 ### Primary Objective
-Extract all 24 lease sections defined in the DDD with factual accuracy >= 95%, provenance on every FACT-status field, and explicit status tracking on every extracted value.
+Extract all 25 lease sections defined in the DDD with factual accuracy >= 95%, provenance on every FACT-status field, and explicit status tracking on every extracted value.
 
 ### Hard Constraints
 - NEVER fabricate a term not present in the source document
@@ -100,9 +100,9 @@ When a term is ambiguous or not explicitly stated, mark as INFERENCE with confid
 
 ## Output Contract
 
-Each extracted field MUST include the following attributes with provenance and status tracking. The output is structured across 24 top-level sections following the DDD schema: (1) documentInformation, (2) parties, (3) premises, (4) term, (5) rent, (6) depositsAndSecurity, (7) operatingCostsAndTaxes, (8) useAndOperations, (9) maintenanceAndRepairs, (10) alterationsAndImprovements, (11) insuranceAndIndemnity, (12) damageAndDestruction, (13) assignmentAndSubletting, (14) defaultAndRemedies, (15) servicesAndUtilities, (16) environmental, (17) subordinationAndAttornment, (18) notices, (19) endOfTerm, (20) specialProvisions, (21) schedulesAndExhibits, (22) criticalDatesSummary, (23) financialObligationsSummary, (24) keyIssuesAndRisks.
+Each extracted field MUST include the following attributes with provenance and status tracking. The output is structured across 25 top-level sections following the DDD schema: (1) documentInformation, (2) parties, (3) premises, (4) term, (5) rent, (6) depositsAndSecurity, (7) operatingCostsAndTaxes, (8) useAndOperations, (9) maintenanceAndRepairs, (10) alterationsAndImprovements, (11) insuranceAndIndemnity, (12) damageAndDestruction, (13) assignmentAndSubletting, (14) defaultAndRemedies, (15) servicesAndUtilities, (16) environmental, (17) subordinationAndAttornment, (18) notices, (19) endOfTerm, (20) specialProvisions, (21) schedulesAndExhibits, (22) criticalDates, (23) financialObligations, (24) keyIssuesAndRisks, (25) notesAndComments.
 
-JSON output uses proper JSON types: numbers for numeric values, strings for text and ISO 8601 dates, booleans for true/false, arrays for lists, null for missing values. Markdown output uses inline status indicators [FACT], [INFERRED], [MISSING] after each extracted value, with an Executive Summary, Key Terms at a Glance, 24 section bullet points, Critical Dates table, Financial Obligations table, and Key Issues & Risks section.
+JSON output uses proper JSON types: numbers for numeric values, strings for text and ISO 8601 dates, booleans for true/false, arrays for lists, null for missing values. Markdown output uses inline status indicators [FACT], [INFERRED], [MISSING] after each extracted value, with an Executive Summary, Key Terms at a Glance, 25 section bullet points, Critical Dates table, Financial Obligations table, and Key Issues & Risks section.
 
 - `value`: the extracted or derived value (proper JSON types or markdown text)
 - `status`: FACT | INFERENCE | MISSING | CONFLICT
@@ -125,9 +125,9 @@ Commercial Lease Abstraction Extraction Rules
 Meta: Version 1.0.0 | Date: 2026-03-01 | Domain: Lease Abstraction | Status: active | Tier: micro
 
 Purpose
-Define extraction, conflict detection, provenance, and normalization rules for North American commercial lease term extraction across 24 standardized sections with dual output format support.
+Define extraction, conflict detection, provenance, and normalization rules for North American commercial lease term extraction across 25 standardized sections with dual output format support.
 
-BEHAVIOR extract_lease_terms: Extract and classify lease terms from source document across all 24 DDD-defined sections
+BEHAVIOR extract_lease_terms: Extract and classify lease terms from source document across all 25 DDD-defined sections
 
   RULE verbatim_financial:
     WHEN a financial value (rent, deposit, operating cost, tax amount) is found verbatim in the source document
@@ -200,7 +200,7 @@ BEHAVIOR validate_extraction: Validate extracted data for completeness, consiste
 
   RULE completeness_check:
     WHEN extraction is complete for a document
-    THEN all 24 DDD-defined sections MUST be present in the output
+    THEN all 25 DDD-defined sections MUST be present in the output
     AND each section MUST contain at least one field with a non-null status
     AND if more than 30% of fields are MISSING the document MUST be flagged for escalation
 
@@ -242,7 +242,7 @@ BEHAVIOR validate_extraction: Validate extracted data for completeness, consiste
     MESSAGE "Template placeholder detected in output — all placeholders MUST be replaced with extracted values or null"
 
 Constraints
-* Extraction MUST process all 24 DDD-defined sections before completion
+* Extraction MUST process all 25 DDD-defined sections before completion
 * Every FACT-status field MUST carry provenance with page, clause, and verbatim quote
 * Financial values MUST NOT be altered from source — extract verbatim with separate normalized field
 * Currency MUST be determined from source document context, never assumed
@@ -253,7 +253,7 @@ Constraints
 
 ## Validation Checklist
 
-- [ ] All 24 DDD-defined sections addressed in output contract
+- [ ] All 25 DDD-defined sections addressed in output contract
 - [ ] Hard constraints are machine-checkable (no subjective rules)
 - [ ] AutoFail conditions have corresponding SESF ERROR blocks
 - [ ] SESF rules cover extraction, conflict, missing-value, and override scenarios
