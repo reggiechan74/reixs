@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import tempfile
 from pathlib import Path
+from typing import Sequence
 
 from reixs.validate.report import Finding
 
@@ -13,14 +14,52 @@ try:
         check_structural_completeness,
         check_error_consistency,
         check_example_consistency,
+        check_type_consistency,
+        check_rule_integrity,
+        check_cross_behavior,
+        check_config_references,
+        check_variable_threading,
+        check_route_completeness,
+        check_error_table_structure,
+        check_notation_section,
     )
     SESF_AVAILABLE = True
 except ImportError:
     SESF_AVAILABLE = False
 
+# Registry of all available SESF check functions, keyed by name.
+# Order matters — structural checks run first, then consistency, then v4.
+ALL_CHECKS: dict[str, object] = {}
+if SESF_AVAILABLE:
+    ALL_CHECKS = {
+        "check_structural_completeness": check_structural_completeness,
+        "check_type_consistency": check_type_consistency,
+        "check_rule_integrity": check_rule_integrity,
+        "check_error_consistency": check_error_consistency,
+        "check_example_consistency": check_example_consistency,
+        "check_cross_behavior": check_cross_behavior,
+        "check_config_references": check_config_references,
+        "check_variable_threading": check_variable_threading,
+        "check_route_completeness": check_route_completeness,
+        "check_error_table_structure": check_error_table_structure,
+        "check_notation_section": check_notation_section,
+    }
 
-def validate_sesf_block(sesf_text: str, pass_number: int = 4) -> list[Finding]:
-    """Validate a SESF text block and return REIXS findings."""
+
+def validate_sesf_block(
+    sesf_text: str,
+    pass_number: int = 4,
+    checks: Sequence[str] | None = None,
+) -> list[Finding]:
+    """Validate a SESF text block and return REIXS findings.
+
+    Args:
+        sesf_text: The raw SESF specification text.
+        pass_number: The REIXS validation pass number (default 4).
+        checks: Optional list of check function names to run.
+                Defaults to all available checks. Pass an empty list
+                to skip all SESF validation (parse only).
+    """
     findings: list[Finding] = []
 
     if not sesf_text or not sesf_text.strip():
@@ -30,7 +69,7 @@ def validate_sesf_block(sesf_text: str, pass_number: int = 4) -> list[Finding]:
             section="behavior_spec",
             field=None,
             message="SESF block is empty",
-            suggestion="Add SESF v3 behavior rules in the ```sesf fenced block",
+            suggestion="Add SESF v4 behavior rules in the ```sesf fenced block",
         ))
         return findings
 
@@ -44,6 +83,12 @@ def validate_sesf_block(sesf_text: str, pass_number: int = 4) -> list[Finding]:
             suggestion=None,
         ))
         return findings
+
+    # Resolve which checks to run
+    if checks is None:
+        selected = list(ALL_CHECKS.values())
+    else:
+        selected = [ALL_CHECKS[name] for name in checks if name in ALL_CHECKS]
 
     # Write to temp file for the SESF parser
     with tempfile.NamedTemporaryFile(
@@ -61,15 +106,15 @@ def validate_sesf_block(sesf_text: str, pass_number: int = 4) -> list[Finding]:
                 severity="error",
                 section="behavior_spec",
                 field=None,
-                message="SESF block has no Meta section — not a valid SESF v3 spec",
+                message="SESF block has no Meta section — not a valid SESF v4 spec",
                 suggestion="Add Meta line: Version X.Y.Z | Date: YYYY-MM-DD | Domain: ... | Status: active | Tier: micro",
             ))
             return findings
 
-        # Run SESF validation passes
-        sesf_results = check_structural_completeness(doc)
-        sesf_results.extend(check_error_consistency(doc))
-        sesf_results.extend(check_example_consistency(doc))
+        # Run selected SESF validation checks
+        sesf_results = []
+        for check_fn in selected:
+            sesf_results.extend(check_fn(doc))
 
         # Map SESF ValidationResult → REIXS Finding
         for r in sesf_results:
