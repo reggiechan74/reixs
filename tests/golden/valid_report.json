@@ -94,6 +94,14 @@
       "pass_number": 4,
       "severity": "info",
       "section": "behavior_spec",
+      "field": "rule_integrity",
+      "message": "[SESF] No PRECEDENCE/PRIORITY declarations (none required)",
+      "suggestion": null
+    },
+    {
+      "pass_number": 4,
+      "severity": "info",
+      "section": "behavior_spec",
       "field": "error_consistency",
       "message": "[SESF] BEHAVIOR 'extract_lease_terms' has 2 well-defined error(s)",
       "suggestion": null
@@ -112,6 +120,30 @@
       "section": "behavior_spec",
       "field": "example_consistency",
       "message": "[SESF] BEHAVIOR 'extract_lease_terms' has fewer examples (3) than rules (5)",
+      "suggestion": null
+    },
+    {
+      "pass_number": 4,
+      "severity": "info",
+      "section": "behavior_spec",
+      "field": "cross_behavior",
+      "message": "[SESF] Cross-behavior checks only apply to complex tier",
+      "suggestion": null
+    },
+    {
+      "pass_number": 4,
+      "severity": "info",
+      "section": "behavior_spec",
+      "field": "variable_threading",
+      "message": "[SESF] All $variable references have producing steps",
+      "suggestion": null
+    },
+    {
+      "pass_number": 4,
+      "severity": "info",
+      "section": "behavior_spec",
+      "field": "route_completeness",
+      "message": "[SESF] All @route tables are complete",
       "suggestion": null
     },
     {
@@ -150,7 +182,7 @@
       "name": "SESF",
       "errors": 0,
       "warnings": 1,
-      "infos": 12
+      "infos": 16
     },
     "5": {
       "pass_number": 5,
