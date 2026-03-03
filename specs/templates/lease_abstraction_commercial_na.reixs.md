@@ -122,10 +122,43 @@ JSON output uses proper JSON types: numbers for numeric values, strings for text
 ```sesf
 Commercial Lease Abstraction Extraction Rules
 
-Meta: Version 1.0.0 | Date: 2026-03-01 | Domain: Lease Abstraction | Status: active | Tier: micro
+Meta
+* Version: 1.0.0
+* Date: 2026-03-01
+* Domain: Lease Abstraction
+* Status: active
+* Tier: standard
+
+Notation
+* $ -- references a variable or config value (e.g., $config.threshold)
+* @ -- marks a structured block (@config for parameters, @route for decision tables)
+* -> -- means "produces", "routes to", or "yields"
+* MUST/SHOULD/MAY/CAN -- requirement strength keywords
 
 Purpose
 Define extraction, conflict detection, provenance, and normalization rules for North American commercial lease term extraction across 25 standardized sections with dual output format support.
+
+Scope
+* IN SCOPE: financial value extraction, date normalization, conflict detection, schedule override handling, provenance tracking, currency inference, completeness validation
+* OUT OF SCOPE: lease classification, tenant creditworthiness assessment, market rent comparison, lease negotiation advice
+
+Inputs
+* source_document: PDF or image - the commercial lease document to extract terms from - required
+* output_format: enum [json, markdown] - the desired output format - required
+* ddd_reference: string - the DDD reference defining the 25 extraction sections - required
+
+Outputs
+* extraction_result: object - structured extraction with status, provenance, and normalized values per field across all 25 sections
+
+@config
+  completeness_escalation_threshold: 0.30
+  confidence_review_threshold: 0.5
+
+Types
+-- none: all data structures are inline within behavior blocks
+
+Functions
+-- none: all logic is expressed directly in behavior rules
 
 BEHAVIOR extract_lease_terms: Extract and classify lease terms from source document across all 25 DDD-defined sections
 
@@ -142,7 +175,7 @@ BEHAVIOR extract_lease_terms: Extract and classify lease terms from source docum
     THEN status MUST be INFERENCE
     AND confidence score MUST be provided between 0.0 and 1.0
     AND reasoning MUST explain how the value was derived
-    AND if confidence < 0.5 the field MUST be flagged for human review
+    AND if confidence < $config.confidence_review_threshold the field MUST be flagged for human review
 
   RULE missing_term:
     WHEN a DDD-defined field is not found anywhere in the source document
@@ -176,6 +209,12 @@ BEHAVIOR extract_lease_terms: Extract and classify lease terms from source docum
     AND the original date text MUST be preserved in the provenance verbatim_quote field
     AND status MUST be FACT if the date is unambiguous or INFERENCE if interpretation was required
 
+  ERRORS:
+  | name | when | severity | action | message |
+  |------|------|----------|--------|---------|
+  | fabricated_value | an extracted value cannot be traced to any text in the source document | critical | reject the extraction and flag for human review | "Extracted value has no source provenance — possible fabrication detected" |
+  | parties_swapped | the landlord and tenant identities are reversed or misassigned in the output | critical | reject the extraction and require re-processing | "Landlord and tenant parties are misidentified or swapped — critical data integrity failure" |
+
   EXAMPLE standard_rent_extraction:
     INPUT: Lease document with clause 5.1 on page 12 stating "The Tenant shall pay base rent of $45.00 per square foot per annum"
     EXPECTED: value="$45.00 per square foot per annum", status=FACT, provenance={"page": 12, "section": "5.1", "verbatim_quote": "$45.00 per square foot per annum"}, normalized_value=45.00, normalized_unit="psf/annum"
@@ -202,7 +241,7 @@ BEHAVIOR validate_extraction: Validate extracted data for completeness, consiste
     WHEN extraction is complete for a document
     THEN all 25 DDD-defined sections MUST be present in the output
     AND each section MUST contain at least one field with a non-null status
-    AND if more than 30% of fields are MISSING the document MUST be flagged for escalation
+    AND if more than $config.completeness_escalation_threshold of fields are MISSING the document MUST be flagged for escalation
 
   RULE provenance_integrity:
     WHEN a field has status FACT
@@ -211,35 +250,18 @@ BEHAVIOR validate_extraction: Validate extracted data for completeness, consiste
     AND provenance MUST include section or clause reference as a string
     AND provenance MUST include a verbatim quote from the source text
 
-  ERROR fabricated_value:
-    WHEN an extracted value cannot be traced to any text in the source document
-    SEVERITY critical
-    ACTION reject the extraction and flag for human review
-    MESSAGE "Extracted value has no source provenance — possible fabrication detected"
+  ERRORS:
+  | name | when | severity | action | message |
+  |------|------|----------|--------|---------|
+  | missing_provenance | a FACT-status field lacks provenance metadata (page, clause, or verbatim quote) | critical | fail validation for this field and flag for correction | "FACT-status field requires complete provenance (page, clause, verbatim quote)" |
+  | wrong_currency | a financial value is assigned an incorrect currency code that does not match the source document | critical | reject the financial extraction and flag for human review | "Financial value assigned wrong currency — source document currency does not match extracted currency" |
+  | template_placeholder | the output contains an unresolved template placeholder such as "[Insert value]", "[TBD]", or "[PLACEHOLDER]" | critical | reject the output and require re-processing | "Template placeholder detected in output — all placeholders MUST be replaced with extracted values or null" |
 
-  ERROR parties_swapped:
-    WHEN the landlord and tenant identities are reversed or misassigned in the output
-    SEVERITY critical
-    ACTION reject the extraction and require re-processing
-    MESSAGE "Landlord and tenant parties are misidentified or swapped — critical data integrity failure"
-
-  ERROR missing_provenance:
-    WHEN a FACT-status field lacks provenance metadata (page, clause, or verbatim quote)
-    SEVERITY critical
-    ACTION fail validation for this field and flag for correction
-    MESSAGE "FACT-status field requires complete provenance (page, clause, verbatim quote)"
-
-  ERROR wrong_currency:
-    WHEN a financial value is assigned an incorrect currency code that does not match the source document
-    SEVERITY critical
-    ACTION reject the financial extraction and flag for human review
-    MESSAGE "Financial value assigned wrong currency — source document currency does not match extracted currency"
-
-  ERROR template_placeholder:
-    WHEN the output contains an unresolved template placeholder such as "[Insert value]", "[TBD]", or "[PLACEHOLDER]"
-    SEVERITY critical
-    ACTION reject the output and require re-processing
-    MESSAGE "Template placeholder detected in output — all placeholders MUST be replaced with extracted values or null"
+  EXAMPLES:
+    complete_extraction: all 25 sections present with non-null status -> valid
+    incomplete_extraction: 10 of 25 sections MISSING (40%) -> flagged for escalation
+    valid_provenance: FACT field with page=5, clause="3.1", quote="..." -> valid
+    missing_provenance: FACT field with provenance=null -> critical error
 
 Constraints
 * Extraction MUST process all 25 DDD-defined sections before completion
@@ -249,6 +271,9 @@ Constraints
 * Dates MUST be normalized to ISO 8601 while preserving original text in provenance
 * Output MUST conform to either JSON or Markdown contract as specified by caller
 * Schedule G (or equivalent) overrides MUST be detected and flagged
+
+Dependencies
+* DDD reference: re-ddd:lease_abstraction_commercial_na@1.0.0
 ```
 
 ## Validation Checklist
