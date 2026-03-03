@@ -63,14 +63,14 @@ A `.reixs.md` file has 10 mandatory sections:
 | **Constraints** | Operational limits (time, format, connectivity) |
 | **Output Contract** | What comes out, with field-level requirements |
 | **Evaluation / EDD** | How to test the output |
-| **Behavior Spec** | SESF v3 rules — machine-parseable behavior |
+| **Behavior Spec** | SESF v4 rules — machine-parseable behavior |
 | **Validation Checklist** | Self-audit items for spec authors |
 
 The two most important sections are **OFD** and **Behavior Spec**:
 
 - **OFD** defines *what* the agent must optimize for — hard constraints that cause instant failure (e.g., "never fabricate a lease term"), priority ordering (factual accuracy > completeness > formatting), and what to do when uncertain.
 
-- **Behavior Spec** defines *how* using [SESF v3](https://github.com/reggiechan74/cc-plugins/tree/main/structured-english) (Structured English Specification Format) — machine-parseable rules like:
+- **Behavior Spec** defines *how* using [SESF v4](https://github.com/reggiechan74/cc-plugins/tree/main/structured-english) (Structured English Specification Format) — machine-parseable rules like:
 
 ```
 RULE verbatim_extraction:
@@ -116,9 +116,9 @@ Each validation pass is independent and testable in isolation. Pass 1 catches st
 
 ### SESF Integration
 
-The SESF block inside a REIXS spec is a complete, standalone SESF v3 document — with its own `Meta:` line, `BEHAVIOR` declarations, `RULE`/`ERROR`/`EXAMPLE` blocks, and `Constraints`.
+The SESF block inside a REIXS spec is a complete, standalone SESF v4 document — with its own `Meta:` line, `BEHAVIOR` declarations, `RULE`/`ERROR`/`EXAMPLE` blocks, and `Constraints`.
 
-REIXS doesn't just store this text — it **validates it** using a vendored copy of the SESF v3 validator (~1,480 lines of pure Python). The adapter writes the SESF text to a temp file, calls `parse_sesf()`, runs structural/error/example consistency checks, then maps each SESF `ValidationResult` (PASS/WARN/FAIL) to a REIXS `Finding` (info/warning/error).
+REIXS doesn't just store this text — it **validates it** using a vendored copy of the SESF v4 validator (~2,140 lines of pure Python). The adapter writes the SESF text to a temp file, calls `parse_sesf()`, runs structural/error/example consistency checks, then maps each SESF `ValidationResult` (PASS/WARN/FAIL) to a REIXS `Finding` (info/warning/error).
 
 When you run `reixs validate`, you get **two validation systems** working together — REIXS's 5-pass validator checking the spec structure, AND the SESF validator checking the behavioral rules inside it.
 
@@ -149,7 +149,7 @@ The compiler refuses to emit runtime JSON if validation status is `fail`, enforc
 1. **Structural** — Required sections, meta fields, version format
 2. **OFD** — Objective Function Design completeness (5 mandatory + 5 tier-dependent)
 3. **Domain** — Task type, jurisdiction, DDD reference, EDD suite
-4. **SESF** — Validates embedded SESF v3 behavior rules
+4. **SESF** — Validates embedded SESF v4 behavior rules
 5. **Cross-field** — Consistency between sections (e.g., provenance in constraints ↔ output contract)
 
 ## Exit Codes
