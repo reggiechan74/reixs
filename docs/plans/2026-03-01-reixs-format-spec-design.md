@@ -85,14 +85,14 @@ The authoritative reference for the `.reixs.md` format. Every rule documented he
    **3.9 Behavior Spec (SESF)**
    - Must contain a fenced code block with language tag `sesf`
    - Empty SESF block = Pass 4 error
-   - SESF v3 Quick Reference (inline summary):
+   - SESF v4 Quick Reference (inline summary):
      - Meta line format: `Version X.Y.Z | Date: YYYY-MM-DD | Domain: ... | Status: active | Tier: micro`
      - BEHAVIOR declarations: `BEHAVIOR name: description`
      - RULE blocks: `RULE name:` → `WHEN` → `THEN` → optional `AND`
      - ERROR blocks: `ERROR name:` → `WHEN` → `SEVERITY` → `ACTION` → `MESSAGE`
      - EXAMPLE blocks: `EXAMPLE name:` → `INPUT:` → `EXPECTED:` → `NOTES:`
      - Constraints section: `Constraints` followed by `*` bullet items
-   - Link to full SESF v3 specification
+   - Link to full SESF v4 specification
    - Accepted aliases: `Behavior Spec`, `Behavior Spec (SESF)`, `SESF`, `Behavior`
 
    **3.10 Validation Checklist**

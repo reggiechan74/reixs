@@ -11,7 +11,7 @@ lastUpdated: 2026-03-01
 
 ## 1. Overview
 
-REIXS is a versioned, testable execution specification for real estate AI workflows. It lets authors define what an AI task must accomplish (objective + hard constraints), what domain terms mean (DDD references), what behaviors are required (SESF v3 rules), and what "good" looks like (evaluation fixtures) — all in a single Markdown file.
+REIXS is a versioned, testable execution specification for real estate AI workflows. It lets authors define what an AI task must accomplish (objective + hard constraints), what domain terms mean (DDD references), what behaviors are required (SESF v4 rules), and what "good" looks like (evaluation fixtures) — all in a single Markdown file.
 
 The system parses, validates, and compiles REIXS specs into machine-readable JSON, catching errors in the spec itself before any AI agent runs.
 
@@ -24,7 +24,7 @@ The system parses, validates, and compiles REIXS specs into machine-readable JSO
 | Repo | Standalone `reggiechan74/reixs` | Clean separation, own CI, publishable to PyPI later |
 | SESF integration | Vendor `validate_sesf.py` | Self-contained, no external path deps. Re-copy when SESF evolves |
 | CLI framework | Click | Battle-tested, good subcommand support, minimal learning curve |
-| SESF block format | Full SESF v3 required | More rigorous — catches real issues. §6.6 example needs updating |
+| SESF block format | Full SESF v4 required | More rigorous — catches real issues. §6.6 example needs updating |
 | Markdown parser | markdown-it-py | Full CommonMark AST, well-maintained, used by MyST/Sphinx |
 | Python version | 3.11+ | Matches Codespace environment |
 

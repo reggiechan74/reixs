@@ -410,7 +410,7 @@ git commit -m "docs: add OFD section reference with tier-dependent field require
 **Files:**
 - Modify: `docs/REIXS-SPEC.md`
 
-**Context:** Remaining 5 sections. The Behavior Spec section includes the SESF v3 quick reference (inline summary + link).
+**Context:** Remaining 5 sections. The Behavior Spec section includes the SESF v4 quick reference (inline summary + link).
 
 **Source files to reference:**
 - `src/reixs/parser/section_model.py:164-179` — `_build_constraints`
@@ -505,7 +505,7 @@ Each extracted field MUST include:
 
 ````
 ```sesf
-(SESF v3 content here)
+(SESF v4 content here)
 ```
 ````
 
@@ -515,9 +515,9 @@ Each extracted field MUST include:
 | Missing Meta line in SESF block | Pass 4 error |
 | SESF structural/consistency failures | Pass 4 error (or warning with `--no-strict-sesf`) |
 
-#### SESF v3 Quick Reference
+#### SESF v4 Quick Reference
 
-The SESF block must be a valid [SESF v3](https://github.com/reggiechan74/cc-plugins/tree/main/structured-english) document. Here's the minimum structure:
+The SESF block must be a valid [SESF v4](https://github.com/reggiechan74/cc-plugins/tree/main/structured-english) document. Here's the minimum structure:
 
 **Meta line** (required):
 
@@ -600,7 +600,7 @@ Constraints
 ```
 ````
 
-For the full SESF v3 specification, see the [SESF documentation](https://github.com/reggiechan74/cc-plugins/tree/main/structured-english).
+For the full SESF v4 specification, see the [SESF documentation](https://github.com/reggiechan74/cc-plugins/tree/main/structured-english).
 
 ---
 
@@ -1086,7 +1086,7 @@ Append the following to `docs/TUTORIAL.md`:
 ```markdown
 ## Step 10: Add the Behavior Spec (SESF)
 
-This is the trickiest section. You need a fenced code block with the language tag `sesf` containing a valid SESF v3 document.
+This is the trickiest section. You need a fenced code block with the language tag `sesf` containing a valid SESF v4 document.
 
 ```markdown
 ## Behavior Spec (SESF)
@@ -1202,7 +1202,7 @@ Error: EDD Suite ID required for standard/complex tier
 ### 4. SESF block has no Meta section
 
 ```
-Error: SESF block has no Meta section — not a valid SESF v3 spec
+Error: SESF block has no Meta section — not a valid SESF v4 spec
 ```
 **Fix:** Add a Meta line inside the SESF block: `Meta: Version 1.0.0 | Date: 2026-03-01 | Domain: Your Domain | Status: active | Tier: micro`
 

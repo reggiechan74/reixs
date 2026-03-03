@@ -11,7 +11,7 @@ lastUpdated: 2026-03-01
 
 **Goal:** Build a working REIXS prototype that can parse, validate, and compile real estate AI execution specs from Markdown to runtime JSON.
 
-**Architecture:** Layered pipeline — markdown-it-py parses REIXS `.md` files into Pydantic models, a 5-pass validator checks structural/OFD/domain/SESF/cross-field rules, and a compiler emits `reixs.runtime.json` + `reixs.manifest.json`. SESF validation uses a vendored copy of the SESF v3 validator.
+**Architecture:** Layered pipeline — markdown-it-py parses REIXS `.md` files into Pydantic models, a 5-pass validator checks structural/OFD/domain/SESF/cross-field rules, and a compiler emits `reixs.runtime.json` + `reixs.manifest.json`. SESF validation uses a vendored copy of the SESF v4 validator.
 
 **Tech Stack:** Python 3.11+, Pydantic v2, Click, markdown-it-py, Rich, pytest
 
@@ -201,7 +201,7 @@ Expected: `SESF validator imported OK`
 
 ```bash
 git add src/reixs/sesf/validate_sesf.py
-git commit -m "feat: vendor SESF v3 validator from structured-english plugin"
+git commit -m "feat: vendor SESF v4 validator from structured-english plugin"
 ```
 
 ---
@@ -610,7 +610,7 @@ git commit -m "feat: add Pydantic data models and validation report types"
 
 ---
 
-## Task 3: Write the lease abstraction template (SESF v3 format)
+## Task 3: Write the lease abstraction template (SESF v4 format)
 
 **Files:**
 - Create: `specs/templates/lease_abstraction_ontario.reixs.md`
@@ -623,7 +623,7 @@ This is the "Step 0" from the design plan — write the spec by hand FIRST.
 
 **Step 1: Create the valid template**
 
-Create `specs/templates/lease_abstraction_ontario.reixs.md`. This is the canonical example. The SESF block uses full SESF v3 format with a BEHAVIOR declaration:
+Create `specs/templates/lease_abstraction_ontario.reixs.md`. This is the canonical example. The SESF block uses full SESF v4 format with a BEHAVIOR declaration:
 
 ```markdown
 # REIXS: Lease Abstraction — Ontario Commercial
@@ -1875,7 +1875,7 @@ def validate_sesf_block(sesf_text: str, pass_number: int = 4) -> list[Finding]:
             section="behavior_spec",
             field=None,
             message="SESF block is empty",
-            suggestion="Add SESF v3 behavior rules in the ```sesf fenced block",
+            suggestion="Add SESF v4 behavior rules in the ```sesf fenced block",
         ))
         return findings
 
@@ -1906,7 +1906,7 @@ def validate_sesf_block(sesf_text: str, pass_number: int = 4) -> list[Finding]:
                 severity="error",
                 section="behavior_spec",
                 field=None,
-                message="SESF block has no Meta section — not a valid SESF v3 spec",
+                message="SESF block has no Meta section — not a valid SESF v4 spec",
                 suggestion="Add Meta line: Version X.Y.Z | Date: YYYY-MM-DD | Domain: ... | Status: active | Tier: micro",
             ))
             return findings
@@ -2850,7 +2850,7 @@ reixs compile my_spec.reixs.md -o build/
 1. **Structural** — Required sections, meta fields, version format
 2. **OFD** — Objective Function Design completeness (5 mandatory + 5 tier-dependent)
 3. **Domain** — Task type, jurisdiction, DDD reference, EDD suite
-4. **SESF** — Validates embedded SESF v3 behavior rules
+4. **SESF** — Validates embedded SESF v4 behavior rules
 5. **Cross-field** — Consistency between sections (e.g., provenance in constraints ↔ output contract)
 
 ## Exit Codes
