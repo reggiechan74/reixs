@@ -52,7 +52,7 @@ Every REIXS spec contains exactly 10 H2-level sections. Each section maps to a c
 | 6 | `## Constraints` | `constraints` | Operational limits (time, format, connectivity) |
 | 7 | `## Output Contract` | `output_contract` | What comes out, with field-level requirements |
 | 8 | `## Evaluation / EDD` | `evaluation` | How to test the output |
-| 9 | `## Behavior Spec (SESF)` | `behavior_spec` | Machine-parseable behavioral rules (SESF v3) |
+| 9 | `## Behavior Spec (SESF)` | `behavior_spec` | Machine-parseable behavioral rules (SESF v4) |
 | 10 | `## Validation Checklist` | `validation_checklist` | Self-audit items for spec authors |
 
 **Section order is not enforced.** The parser matches sections by heading text (using an alias lookup table), not by position. You may arrange sections in any order, though the conventional order above is recommended for readability.
@@ -715,20 +715,27 @@ SESF validation runs as Pass 4 in the pipeline. The adapter (`sesf/adapter.py`) 
 
 **The `--no-strict-sesf` flag**: When passed on the CLI, all SESF errors are downgraded to warnings. This is implemented in the validation runner (`validate/__init__.py:38-43`) — if `strict_sesf` is `False`, any finding with `severity == "error"` from the SESF pass is changed to `"warning"` before being added to the report. This allows compilation to proceed despite SESF issues during early spec development.
 
-#### SESF v3 Quick Reference
+#### SESF v4 Quick Reference
 
 The SESF block uses a domain-specific language with these constructs:
 
 | Construct | Syntax | Purpose |
 |---|---|---|
-| Meta | `Meta: Version X.Y.Z \| Date: YYYY-MM-DD \| Domain: ... \| Status: active \| Tier: micro` | Document metadata (required) |
+| Meta (micro) | `Meta: Version X.Y.Z \| Date: YYYY-MM-DD \| Domain: ... \| Status: active \| Tier: micro` | Document metadata — pipe-delimited for micro tier |
+| Meta (standard+) | Multi-line bullet format with `* Version:`, `* Date:`, etc. | Document metadata — multi-line for standard/complex tier |
+| Notation | `Notation` section with `*` bullets defining `$`, `@`, `->`, keywords | Symbol glossary (required for standard/complex tier) |
 | BEHAVIOR | `BEHAVIOR name: description` | Named behavior declaration |
 | RULE | `RULE name:` then `WHEN` / `THEN` / `AND` clauses | Conditional rule within a behavior |
 | ERROR | `ERROR name:` then `WHEN` / `SEVERITY` / `ACTION` / `MESSAGE` clauses | Error handling rule |
+| ERRORS: table | Compact 5-column table: name, when, severity, action, message | Compact error table (2+ error cases) |
 | EXAMPLE | `EXAMPLE name:` then `INPUT:` / `EXPECTED:` / `NOTES:` | Test example for validation |
+| EXAMPLES: | `name: input_description -> expected_outcome` | Compact example format |
+| @config | `@config` block with `key: value` entries | Centralized static parameters |
+| @route | `@route name [mode]` with `condition -> outcome` rows | Decision table (3+ branches) |
+| $variable | `STEP name -> $var` / `$config.key` | Variable threading and config references |
 | Constraints | `Constraints` header then `* item` bullets | Operational constraints within SESF |
 
-For the full SESF v3 specification, see: https://github.com/reggiechan74/cc-plugins/tree/main/structured-english
+For the full SESF v4 specification, see: https://github.com/reggiechan74/cc-plugins/tree/main/structured-english
 
 #### Minimal valid SESF block
 
