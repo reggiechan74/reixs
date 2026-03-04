@@ -17,7 +17,7 @@ Extract structured lease terms from a commercial lease document (any North Ameri
 
 - Jurisdiction: North America
 - Area Unit: sq ft (default), sq m (accepted)
-- DDD Reference: re-ddd:lease_abstraction_commercial_na@1.0.0
+- DDD Reference: re-ddd:lease_abstraction_commercial_na@2.0.0
 - ADR References: ADR-001, ADR-003, ADR-004
 
 ## Inputs
@@ -273,7 +273,7 @@ Constraints
 * Schedule G (or equivalent) overrides MUST be detected and flagged
 
 Dependencies
-* DDD reference: re-ddd:lease_abstraction_commercial_na@1.0.0
+* DDD reference: re-ddd:lease_abstraction_commercial_na@2.0.0
 ```
 
 ## Validation Checklist
