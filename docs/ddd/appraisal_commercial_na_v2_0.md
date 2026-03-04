@@ -4,7 +4,7 @@
 
 **Scope:** Field definitions for USPAP-compliant commercial real estate property valuation reports in North America, covering engagement metadata, property and site description, three approaches to value, market analysis, highest and best use, stabilization, and reconciliation with multiple valuation premises.
 
-**Relationship to REIXS:** This DDD provides canonical definitions for appraisal report production workflows. It references `core_commercial_re_na@2.0.0` for shared property identification, financial fundamentals, area measurement, market context, revenue/expense line items, and zoning/environmental fields. For rent comparable analysis infrastructure, see also `leasing_commercial_na@1.0.0 → comparableLeases`. Investment analysis workflows (DCF projections, underwriting, due diligence) are defined in the separate `investment_commercial_na@1.0.0`.
+**Relationship to REIXS:** This DDD provides canonical definitions for appraisal report production workflows. It references `core_commercial_re_na@2.0.0` for shared property identification, financial fundamentals, area measurement, market context, revenue/expense line items, and zoning/environmental fields. For rent comparable analysis infrastructure, see also `leasing_commercial_na@2.0.0 → comparableLeases`. Investment analysis workflows (DCF projections, underwriting, due diligence) are defined in the separate `investment_commercial_na@2.0.0`.
 
 ---
 

@@ -4,7 +4,7 @@
 
 **Scope:** Field definitions for commercial real estate investment analysis in North America, covering acquisition, DCF projections, underwriting, due diligence, investment metrics, market context, and disposition analysis.
 
-**Relationship to REIXS:** This DDD provides canonical definitions for investment analysis and acquisition/disposition workflows. It references `core_commercial_re_na@2.0.0` for shared property identification, financial fundamentals, area measurement, market context, and zoning/environmental fields. For property valuation (appraisal) workflows, see `appraisal_commercial_na@1.0.0` — the investment DDD can reference appraised values as inputs to underwriting assumptions.
+**Relationship to REIXS:** This DDD provides canonical definitions for investment analysis and acquisition/disposition workflows. It references `core_commercial_re_na@2.0.0` for shared property identification, financial fundamentals, area measurement, market context, and zoning/environmental fields. For property valuation (appraisal) workflows, see `appraisal_commercial_na@2.0.0` — the investment DDD can reference appraised values as inputs to underwriting assumptions.
 
 ---
 
@@ -27,7 +27,7 @@ Property identity fields reference `core_commercial_re_na@2.0.0 → propertyIden
 | `goingInCapRate` | number | Going-in capitalization rate at acquisition (expressed as decimal, e.g., 0.06) → `core@2.0.0 → capRate` — at acquisition |
 | `acquisitionDate` | string (ISO 8601) | Actual or expected acquisition closing date |
 | `acquisitionBasis` | string | Basis for acquisition: off-market, marketed, auction, portfolio |
-| `appraiserValueReference` | string | Reference to appraised value (`appraisal_commercial_na@1.0.0 → reconciliationAndConclusion → finalValueConclusion`) |
+| `appraiserValueReference` | string | Reference to appraised value (`appraisal_commercial_na@2.0.0 → reconciliationAndConclusion → finalValueConclusion`) |
 | `priceToAppraiserValueRatio` | number | Purchase price as a ratio to appraised value (e.g., 0.95 = 5% below appraised value) |
 | `investmentThesis` | string | Summary of the investment thesis and value creation strategy |
 | `investmentStrategy` | string | Strategy type: core, core-plus, value-add, opportunistic, development |
