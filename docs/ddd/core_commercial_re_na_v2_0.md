@@ -10,7 +10,7 @@
 
 ## Sections
 
-The schema defines **12 sections** with **113 fields** total. All sections represent shared concepts used across multiple CRE roles and workflows.
+The schema defines **12 sections** with **114 fields** total. All sections represent shared concepts used across multiple CRE roles and workflows.
 
 ### 1. propertyIdentification
 
