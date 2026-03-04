@@ -6,12 +6,13 @@ DDD_REF_PATTERN = re.compile(r"^re-ddd:[\w_]+@\d+\.\d+\.\d+$")
 
 KNOWN_DDD_REFS = {
     "re-ddd:lease_core_terms_ontario@0.1.0",
-    "re-ddd:lease_abstraction_commercial_na@1.0.0",
-    "re-ddd:core_commercial_re_na@1.0.0",
-    "re-ddd:property_management_commercial_na@1.0.0",
-    "re-ddd:asset_management_commercial_na@1.0.0",
-    "re-ddd:leasing_commercial_na@1.0.0",
-    "re-ddd:investment_appraisal_commercial_na@1.0.0",
+    "re-ddd:lease_abstraction_commercial_na@2.0.0",
+    "re-ddd:core_commercial_re_na@2.0.0",
+    "re-ddd:property_management_commercial_na@2.0.0",
+    "re-ddd:asset_management_commercial_na@2.0.0",
+    "re-ddd:leasing_commercial_na@2.0.0",
+    "re-ddd:appraisal_commercial_na@2.0.0",
+    "re-ddd:investment_commercial_na@2.0.0",
 }
 
 
